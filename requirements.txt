@@ -1,0 +1,14 @@
+streamlit
+opencv-python-headless
+numpy
+Pillow
+networkx
+pyvis
+requests
+openai-whisper
+fpdf
+folium
+streamlit-folium
+geopy
+pandas
+google-genai

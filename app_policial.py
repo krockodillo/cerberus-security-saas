@@ -458,5 +458,131 @@ else:
                             # Nota: Usando API pública gratuita ip-api.com. Em produção, considerar API paga para maior volume.
                             res_ip = requests.get(f"http://ip-api.com/json/{ip_alvo}?lang=pt-BR").json()
                             if res_ip.get("status") == "success":
-                                except Exception as e:
+                                st.markdown(f"""
+                                <div class='cyber-box'>
+                                    <h4>📍 Rastreamento Concluído: {ip_alvo}</h4>
+                                    <ul>
+                                        <li><b>País/Região:</b> {res_ip.get('country')} / {res_ip.get('regionName')}</li>
+                                        <li><b>Cidade:</b> {res_ip.get('city')}</li>
+                                        <li><b>Provedor (ISP):</b> {res_ip.get('isp')} - {res_ip.get('org')}</li>
+                                        <li><b>Coordenadas Aproximadas:</b> {res_ip.get('lat')}, {res_ip.get('lon')}</li>
+                                    </ul>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                m_ip = folium.Map([res_ip.get('lat'), res_ip.get('lon')], zoom_start=12)
+                                folium.Marker([res_ip.get('lat'), res_ip.get('lon')], tooltip=f"ISP: {res_ip.get('isp')}").add_to(m_ip)
+                                st_folium(m_ip, height=350, use_container_width=True)
+                            else:
+                                st.error("❌ IP Inválido ou não encontrado na base pública.")
+                        except:
+                            st.error("Erro na comunicação com o servidor de rastreamento.")
+
+        with tab_dorks:
+            st.subheader("Matriz de Cruzamento de Dados (Web)")
+            st.markdown("Utiliza operadores boleanos invisíveis para forçar bancos de dados a exporem o alvo.")
+            c_d1, c_d2 = st.columns(2)
+            dork_nome = c_d1.text_input("Nome/Vulgo do Alvo", placeholder="Ex: Zé Gotinha da Silva")
+            target_user = c_d2.text_input("Username (@) se conhecido", placeholder="Ex: pcc_matador157")
+            
+            if st.button("GERAR MATRIZ DE EXTRAÇÃO", type="primary"):
+                if dork_nome or target_user:
+                    st.markdown("<div class='cyber-box'>✅ <b>Links Táticos Gerados.</b> (Clique para forçar a busca em nova aba)</div><br>", unsafe_allow_html=True)
+                    
+                    if dork_nome:
+                        termo = urllib.parse.quote(f'"{dork_nome}"')
+                        st.markdown("#### 🔍 Buscas Profundas pelo Nome:")
+                        st.markdown(f"👉 <a class='cyber-link' href='https://www.google.com/search?q=site:instagram.com+{termo}' target='_blank'>Varredura no Instagram</a>", unsafe_allow_html=True)
+                        st.markdown(f"👉 <a class='cyber-link' href='https://www.google.com/search?q=site:facebook.com+{termo}' target='_blank'>Varredura no Facebook</a>", unsafe_allow_html=True)
+                        st.markdown(f"👉 <a class='cyber-link' href='https://www.google.com/search?q=site:jusbrasil.com.br+{termo}' target='_blank'>Busca de Antecedentes (Jusbrasil)</a>", unsafe_allow_html=True)
+                    
+                    st.write("---")
+                    if target_user:
+                        t_user = target_user.replace("@", "").strip()
+                        st.markdown(f"#### 👣 Rastro Digital do @{t_user}:")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://www.instagram.com/{t_user}/' target='_blank'>Instagram Direto</a>", unsafe_allow_html=True)
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://www.facebook.com/{t_user}' target='_blank'>Facebook Direto</a>", unsafe_allow_html=True)
+                        with c2:
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://www.tiktok.com/@{t_user}' target='_blank'>TikTok Direto</a>", unsafe_allow_html=True)
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://twitter.com/{t_user}' target='_blank'>X (Twitter) Direto</a>", unsafe_allow_html=True)
+                        with c3:
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://br.pinterest.com/{t_user}/' target='_blank'>Pinterest Direto</a>", unsafe_allow_html=True)
+                            st.markdown(f"🔗 <a class='cyber-link' href='https://www.youtube.com/@{t_user}' target='_blank'>YouTube Direto</a>", unsafe_allow_html=True)
+
+        with tab_gps:
+            st.subheader("Extração de Coordenadas Ocultas (EXIF)")
+            st.info("Arquivos enviados via WhatsApp perdem o metadado. Use fotos originais apreendidas em celulares.")
+            u_gps = st.file_uploader("Carregar Arquivo de Imagem Original", key="gps_up")
+            if u_gps:
+                geo, msg = extrair_geolocalizacao(Image.open(u_gps))
+                if geo:
+                    st.success(f"📍 Alvo Localizado! Lat: {geo[0]}, Lon: {geo[1]}")
+                    m = folium.Map([geo[0], geo[1]], zoom_start=15)
+                    folium.Marker([geo[0], geo[1]], tooltip="Origem da Foto").add_to(m)
+                    st_folium(m, height=400, use_container_width=True)
+                else: 
+                    st.error(f"❌ Não foi possível extrair a localização. Motivo: {msg}")
+
+    elif menu == "7. Checklist Tático":
+        st.header("📋 Checklist de Plantão")
+        tipo = st.selectbox("Ocorrência", ["Flagrante", "B.O.", "Ato Infracional"])
+        if st.button("GERAR LISTA"):
+            st.success("Lista gerada para: " + tipo)
+            st.checkbox("Boletim de Ocorrência")
+            st.checkbox("Exame IML")
+            st.checkbox("Oitivas")
+            if tipo == "Flagrante": st.checkbox("Nota de Culpa")
+
+    elif menu == "8. Gerador de Persona (Cover)":
+        st.header("🕵️ Cover")
+        if st.button("GERAR"): st.write(gerar_pessoa_4devs())
+
+    # --- MÓDULO 9 ATUALIZADO: NANO BANANA 2 (gemini-3.1-flash-image) ---
+    elif menu == "9. Gerador de Rosto (IA Avançada)":
+        st.header("👤 Criação de Perfil Cover (Fotorrealismo Fast)")
+        st.markdown("Gere rostos específicos para operações de inteligência utilizando o motor Nano Banana 2 (Gemini Flash Image).")
+
+        with st.form("gerador_cover"):
+            c1, c2 = st.columns(2)
+            genero = c1.selectbox("Gênero", ["Homem", "Mulher"])
+            idade = c2.slider("Idade Aproximada", 18, 80, 35)
+
+            etnia = st.selectbox("Etnia/Aparência", ["Latino/Pardo", "Caucasiano/Branco", "Negro", "Asiático", "Indígena"])
+            caracteristicas = st.text_input("Características Específicas (Opcional)", placeholder="Ex: Cicatriz, tatuagem, óculos...")
+
+            btn_gerar = st.form_submit_button("GERAR IDENTIDADE VISUAL (NANO BANANA 2)", type="primary")
+
+        if btn_gerar:
+            with st.spinner("Sintetizando rosto via Nano Banana 2... (isso leva segundos)"):
+                try:
+                    prompt_base = f"Fotografia em estilo documento (fundo cinza claro, iluminação de estúdio realista, alta resolução, fotorrealista) de um(a) {genero}, {idade} anos de idade, etnia {etnia}."
+                    if caracteristicas:
+                        prompt_base += f" Características visíveis: {caracteristicas}."
+
+                    client = genai.Client(api_key=GEMINI_API_KEY)
+                    
+                    # Chamada atualizada para o modelo Nano Banana 2 (3.1 Flash Image Preview)
+                    result = client.models.generate_images(
+                        model='gemini-3.1-flash-image-preview', 
+                        prompt=prompt_base,
+                        config=genai.types.GenerateImagesConfig(
+                            number_of_images=1,
+                            output_mime_type="image/jpeg",
+                            aspect_ratio="1:1"
+                        )
+                    )
+
+                    for generated_image in result.generated_images:
+                        image = Image.open(io.BytesIO(generated_image.image.image_bytes))
+                        col_img, _ = st.columns([1, 1])
+                        with col_img:
+                            st.image(image, caption="Perfil Gerado (Nano Banana 2)", use_container_width=True)
+                        
+                        st.success("✅ Imagem pronta para uso operacional.")
+
+                except Exception as e:
+                    # Se houver erro de cota ou bloqueio de região no Gemini API gratuito, 
+                    # considerar integrar um motor open-source via API paga no futuro.
                     st.error(f"Erro na geração visual. Verifique sua conexão ou cota da API. Detalhes técnicos: ({e})")

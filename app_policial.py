@@ -458,4 +458,5 @@ else:
                             # Nota: Usando API pública gratuita ip-api.com. Em produção, considerar API paga para maior volume.
                             res_ip = requests.get(f"http://ip-api.com/json/{ip_alvo}?lang=pt-BR").json()
                             if res_ip.get("status") == "success":
-                                st.
+                                except Exception as e:
+                    st.error(f"Erro na geração visual. Verifique sua conexão ou cota da API. Detalhes técnicos: ({e})")

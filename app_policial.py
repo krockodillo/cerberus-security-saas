@@ -26,7 +26,7 @@ from google import genai
 # ==================================================
 # CONFIGURAÇÃO GERAL E CHAVES MESTRAS
 # ==================================================
-st.set_page_config(page_title="CERBERUS v4.7 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
+st.set_page_config(page_title="CERBERUS v4.8 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
 
 # Sua Chave API do Google (Invisível para os clientes)
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
@@ -60,10 +60,9 @@ st.markdown("""
     .plan-gold { background-color: #eab308; color: black; }
     .plan-silver { background-color: #94a3b8; color: black; }
     .plan-gray { background-color: #475569; }
-    /* Estilo para links forçados a brilhar no modo escuro */
     .cyber-link { color: #38bdf8 !important; text-decoration: none; font-weight: bold; }
     .cyber-link:hover { color: #7dd3fc !important; text-decoration: underline; }
-    .cyber-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #475569; color: #ffffff; }
+    .cyber-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #475569; color: #ffffff; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -92,9 +91,6 @@ def init_db():
     conn.close()
 
 def login_user(username, password):
-    # Nota: Em produção na nuvem, o arquivo .db precisa persistir. 
-    # No Streamlit Cloud gratuito, ele reseta a cada deploy. 
-    # Para o BETA isso é aceitável.
     conn = sqlite3.connect('cerberus_users.db')
     c = conn.cursor()
     c.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, password))
@@ -145,11 +141,7 @@ init_db()
 # MOTORES & FUNÇÕES DO SISTEMA (CORE)
 # ==================================================
 @st.cache_resource
-def carregar_whisper(): 
-    # Nota: No Streamlit Cloud gratuito, o Whisper Base pode ser pesado.
-    # Se der erro de memória, mudar para "tiny".
-    return whisper.load_model("tiny") 
-
+def carregar_whisper(): return whisper.load_model("tiny")
 try: whisper_model = carregar_whisper(); STATUS_AUDIO = True
 except: STATUS_AUDIO = False
 
@@ -385,13 +377,57 @@ else:
                     except Exception as e:
                         st.error(f"Erro na análise de servidor. Verifique sua conexão. Detalhes: {e}")
 
+    # --- MÓDULO 2 REFORMULADO: GRAVAÇÃO NATIVA + UPLOAD ---
     elif menu == "2. Transcrição de Áudio":
-        st.header("🎙️ Transcrição")
-        a = st.file_uploader("Áudio", type=['mp3','wav'])
-        if a and STATUS_AUDIO and st.button("TRANSCREVER"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as t: t.write(a.getvalue()); p=t.name
-            r = whisper_model.transcribe(p); os.remove(p)
-            for s in r['segments']: st.info(s['text'])
+        st.header("🎙️ Transcrição Tática e Interceptação")
+        st.markdown("Faça o upload de um arquivo de áudio ou grave diretamente do microfone para transcrição via IA (Whisper).")
+        
+        tab_upload, tab_mic = st.tabs(["📁 Upload de Arquivo", "🎤 Gravar Áudio (Microfone)"])
+        
+        audio_data = None
+        
+        with tab_upload:
+            a_up = st.file_uploader("Carregar Áudio Oculto", type=['mp3','wav', 'm4a', 'ogg'])
+            if a_up: 
+                audio_data = a_up
+                
+        with tab_mic:
+            st.info("Pressione o botão do microfone abaixo para iniciar a gravação ambiente.")
+            a_mic = st.audio_input("Gravação Tática")
+            if a_mic: 
+                audio_data = a_mic
+            
+        if audio_data and STATUS_AUDIO:
+            st.markdown("---")
+            st.markdown("### 🎧 Áudio Capturado")
+            st.audio(audio_data)
+            
+            if st.button("INICIAR TRANSCRIÇÃO", type="primary"):
+                with st.spinner("Decodificando e transcrevendo áudio..."):
+                    try:
+                        # Salva o arquivo na memória temporária do servidor
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
+                            t.write(audio_data.getvalue())
+                            p = t.name
+                        
+                        r = whisper_model.transcribe(p)
+                        os.remove(p)
+                        
+                        texto_completo = ""
+                        for s in r['segments']: 
+                            texto_completo += s['text'] + "\n"
+                        
+                        st.markdown("### 📝 Transcrição Oficial")
+                        texto_formatado = texto_completo.replace('\n', '<br>')
+                        st.markdown(f"<div class='cyber-box'>{texto_formatado}</div>", unsafe_allow_html=True)
+                        
+                        st.write("📄 **Copiar Transcrição:**")
+                        st.code(texto_completo, language="markdown")
+                        
+                    except Exception as e:
+                        st.error(f"Erro no processamento do áudio: {e}")
+        elif not STATUS_AUDIO:
+            st.error("⚠️ O motor Whisper não foi carregado corretamente. Verifique a instalação do servidor.")
 
     elif menu == "3. Visão Forense":
         st.header("👁️ Tratamento Forense")
@@ -455,7 +491,6 @@ else:
                 if ip_alvo:
                     with st.spinner("Consultando bases de dados globais..."):
                         try:
-                            # Nota: Usando API pública gratuita ip-api.com. Em produção, considerar API paga para maior volume.
                             res_ip = requests.get(f"http://ip-api.com/json/{ip_alvo}?lang=pt-BR").json()
                             if res_ip.get("status") == "success":
                                 st.markdown(f"""
@@ -539,7 +574,6 @@ else:
         st.header("🕵️ Cover")
         if st.button("GERAR"): st.write(gerar_pessoa_4devs())
 
-    # --- MÓDULO 9 ATUALIZADO: NANO BANANA 2 (gemini-3.1-flash-image) ---
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Criação de Perfil Cover (Fotorrealismo Fast)")
         st.markdown("Gere rostos específicos para operações de inteligência utilizando o motor Nano Banana 2 (Gemini Flash Image).")
@@ -562,8 +596,6 @@ else:
                         prompt_base += f" Características visíveis: {caracteristicas}."
 
                     client = genai.Client(api_key=GEMINI_API_KEY)
-                    
-                    # Chamada atualizada para o modelo Nano Banana 2 (3.1 Flash Image Preview)
                     result = client.models.generate_images(
                         model='gemini-3.1-flash-image-preview', 
                         prompt=prompt_base,
@@ -583,6 +615,4 @@ else:
                         st.success("✅ Imagem pronta para uso operacional.")
 
                 except Exception as e:
-                    # Se houver erro de cota ou bloqueio de região no Gemini API gratuito, 
-                    # considerar integrar um motor open-source via API paga no futuro.
                     st.error(f"Erro na geração visual. Verifique sua conexão ou cota da API. Detalhes técnicos: ({e})")

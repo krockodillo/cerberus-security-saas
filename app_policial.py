@@ -31,87 +31,31 @@ try:
 except ImportError:
     LIBS_DOC = False
 
-# ==============================================================================
-# ⚙️ CONFIGURAÇÃO GERAL
-# ==============================================================================
 st.set_page_config(page_title="CERBERUS - Sistema Tático", layout="wide", page_icon="🛡️")
 
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
 
-# ==============================================================================
-# 🎨 DESIGN E ESTILOS (IMPORTANDO FONTE INTER)
-# ==============================================================================
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-
-    .stApp {background-color: #0E1117;}
-    
-    /* Remove as bordas feias do Streamlit no form */
-    div[data-testid="stForm"] {
-        border: none !important;
-        padding: 0 !important;
-        background-color: transparent !important;
-    }
-
-    /* Estilização dos campos de input do Login */
-    .stTextInput>div>div>input {
-        background-color: #111827 !important;
-        color: #ffffff !important;
-        border: 1px solid #475569 !important;
-        border-radius: 6px !important;
-        padding: 10px !important;
-    }
-
-    .stTextInput>div>div>input:focus {
-        border-color: #38bdf8 !important;
-    }
-
-    /* Botão de Entrar */
-    div[data-testid="stFormSubmitButton"] > button {
-        background-color: #2563eb !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 6px !important;
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 600 !important;
-        width: 100% !important;
-        padding: 8px !important;
-        margin-top: 10px !important;
-    }
-
-    div[data-testid="stFormSubmitButton"] > button:hover {
-        background-color: #1d4ed8 !important;
-    }
-
-    /* Estilos dos Módulos Internos */
-    .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
-    .plan-gold { background-color: #eab308; color: black; }
-    .plan-silver { background-color: #94a3b8; color: black; }
-    .plan-gray { background-color: #475569; }
-    .cyber-link { color: #38bdf8 !important; text-decoration: none; font-weight: bold; }
-    .cyber-link:hover { color: #7dd3fc !important; text-decoration: underline; }
-    .cyber-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #475569; color: #ffffff; margin-bottom: 15px; }
-    .badge-warning { background-color: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-# ==============================================================================
-# ⚙️ BANCO DE DADOS E LISTA DE MÓDULOS
-# ==============================================================================
 TODOS_MODULOS = [
-    "🔔 Notificações e Atualizações", "1. Detecção de Armas", "2. Transcrição de Áudio",
-    "3. Visão Forense", "4. Mapa de Vínculos", "5. Investigação CPF",
-    "6. Cyber OSINT & Forense", "7. Checklist Tático", "8. Gerador de Persona (Cover)",
-    "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental"
+    "🔔 Notificações e Atualizações",
+    "1. Detecção de Armas",
+    "2. Transcrição de Áudio",
+    "3. Visão Forense",
+    "4. Mapa de Vínculos",
+    "5. Investigação CPF",
+    "6. Cyber OSINT & Forense",
+    "7. Checklist Tático",
+    "8. Gerador de Persona (Cover)",
+    "9. Gerador de Rosto (IA Avançada)",
+    "10. Inteligência Documental"
 ]
 
 MODULOS_SILVER = [
-    "🔔 Notificações e Atualizações", "1. Detecção de Armas", "5. Investigação CPF",
-    "6. Cyber OSINT & Forense", "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental"
+    "🔔 Notificações e Atualizações",
+    "1. Detecção de Armas",
+    "5. Investigação CPF",
+    "6. Cyber OSINT & Forense",
+    "9. Gerador de Rosto (IA Avançada)",
+    "10. Inteligência Documental"
 ]
 
 def init_db():
@@ -165,9 +109,6 @@ def deletar_usuario(username):
 
 init_db()
 
-# ==============================================================================
-# ⚙️ FUNÇÕES CORE
-# ==============================================================================
 @st.cache_resource
 def carregar_whisper(): return whisper.load_model("tiny")
 try: whisper_model = carregar_whisper(); STATUS_AUDIO = True
@@ -201,7 +142,7 @@ def gerar_mapa_vinculos_json(json_dados):
             net.add_edge(edge["from"], edge["to"], label=edge["label"], color="#94a3b8")
         net.save_graph("grafo_inteligencia.html")
         return True
-    except Exception as e: return False
+    except: return False
 
 def extrair_texto_arquivo(uploaded_file):
     if not LIBS_DOC: return "Erro"
@@ -228,59 +169,46 @@ def gerar_pessoa_4devs():
     try: return requests.post("https://www.4devs.com.br/ferramentas_online.php", data={'acao':'gerar_pessoa','sexo':'I','txt_qtde':1}, headers={'Content-Type':'application/x-www-form-urlencoded'}).json()[0]
     except: return None
 
-
 # ==============================================================================
-# 🎨 TELA DE LOGIN MINIMALISTA
+# TELA DE LOGIN PURA (SEM CSS)
 # ==============================================================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     
-    LINK_LOGO_LOGIN = "https://static.wikia.nocookie.net/nopixel/images/b/bd/Cpd_insignia.png/revision/latest?cb=20221117105741"
-    
-    # Estrutura HTML da caixa alinhada ao centro com a hierarquia de fontes Inter
-    st.markdown(f"""
-        <div style="text-align: center; max-width: 380px; margin: 0 auto; padding: 40px 30px; background-color: #1f2937; border-radius: 12px; border: 1px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-            
-            <img src="{LINK_LOGO_LOGIN}" style="max-width: 110px; margin: 0 auto 20px auto; display: block;">
-            
-            <h1 style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 30px; color: #ffffff; margin: 0 0 5px 0; letter-spacing: 1px;">CERBERUS</h1>
-            <h2 style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; color: #9ca3af; margin: 0 0 5px 0;">Sistema de Inteligência Tática</h2>
-            <h3 style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 13px; color: #6b7280; margin: 0 0 25px 0; letter-spacing: 2px;">PCERJ • PMERJ</h3>
-            
-            <div style="text-align: left;">
-    """, unsafe_allow_html=True)
-    
-    with st.form("login_form"):
-        user = st.text_input("Usuário", placeholder="Credencial", label_visibility="collapsed")
-        pwd = st.text_input("Senha", type="password", placeholder="Senha", label_visibility="collapsed")
+    with col2:
+        st.markdown("<h1 style='text-align: center;'>CERBERUS</h1>", unsafe_allow_html=True)
         
-        btn = st.form_submit_button("ENTRAR")
+        with st.form("login_form"):
+            user = st.text_input("Usuário")
+            pwd = st.text_input("Senha", type="password")
+            
+            btn_entrar = st.form_submit_button("ENTRAR", use_container_width=True)
+            
+            if btn_entrar:
+                with st.spinner("Autenticando..."):
+                    u_data, msg = login_user(user, pwd)
+                    if u_data:
+                        st.session_state['logged_in'] = True
+                        st.session_state['username'] = u_data[0]
+                        st.session_state['role'] = u_data[2]
+                        st.session_state['plan'] = u_data[3]
+                        st.session_state['perms'] = u_data[4]
+                        st.rerun()
+                    else:
+                        st.error(msg)
         
-        if btn:
-            with st.spinner("Autenticando..."):
-                u_data, msg = login_user(user, pwd)
-                if u_data:
-                    st.session_state['logged_in'] = True
-                    st.session_state['username'] = u_data[0]
-                    st.session_state['role'] = u_data[2]
-                    st.session_state['plan'] = u_data[3]
-                    st.session_state['perms'] = u_data[4]
-                    st.rerun()
-                else:
-                    st.error(msg)
-                    
-    st.markdown("""
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+        # Botão secundário nativo fora do form
+        if st.button("Solicitar acesso", use_container_width=True):
+            st.info("Função de solicitação de acesso em desenvolvimento.")
 
 else:
     # ==============================================================================
-    # ⚙️ ÁREA LOGADA - MÓDULOS E DASHBOARD
+    # ÁREA LOGADA
     # ==============================================================================
     user_role = st.session_state['role']
     user_plan = st.session_state['plan']
@@ -289,9 +217,9 @@ else:
     st.sidebar.title("🐕‍🦺 CERBERUS")
     st.sidebar.caption(f"Usuário: {st.session_state['username']}")
     
-    if user_plan == 'GOLD': st.sidebar.markdown("<span class='status-badge plan-gold'>PLANO GOLD</span>", unsafe_allow_html=True)
-    elif user_plan == 'SILVER': st.sidebar.markdown("<span class='status-badge plan-silver'>PLANO SILVER</span>", unsafe_allow_html=True)
-    else: st.sidebar.markdown("<span class='status-badge plan-gray'>PLANO GRAY</span>", unsafe_allow_html=True)
+    if user_plan == 'GOLD': st.sidebar.markdown("**PLANO GOLD**")
+    elif user_plan == 'SILVER': st.sidebar.markdown("**PLANO SILVER**")
+    else: st.sidebar.markdown("**PLANO GRAY**")
     
     st.sidebar.markdown("---")
     if st.sidebar.button("SAIR DO SISTEMA"):
@@ -328,13 +256,8 @@ else:
 
     elif menu == "🔔 Notificações e Atualizações":
         st.header("🔔 Central de Notificações")
-        st.markdown("### 📋 Histórico")
-        st.markdown("""
-        <div class='cyber-box'>
-            <span style='color: #38bdf8; font-weight: bold;'>[Atualização] v5.5</span> - Nova interface de login minimalista adicionada (Fonte Inter).<br>
-            <span style='color: #38bdf8; font-weight: bold;'>[Atualização] v5.0</span> - Lançamento da Inteligência Documental.<br>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### Histórico")
+        st.markdown("- **[Atualização] v5.6** - Limpeza total de CSS e segurança nativa.")
 
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
@@ -344,7 +267,7 @@ else:
                 try:
                     client = genai.Client(api_key=GEMINI_API_KEY)
                     r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise armas e pessoas de forma militar.", Image.open(u)])
-                    st.markdown(f"<div class='cyber-box'>{r.text.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                    st.write(r.text)
                 except Exception as e: st.error(f"Erro: {e}")
 
     elif menu == "2. Transcrição de Áudio":
@@ -359,7 +282,7 @@ else:
                 with st.spinner("Decodificando..."):
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t: t.write(audio_data.getvalue()); p = t.name
                     r = whisper_model.transcribe(p); os.remove(p)
-                    st.markdown(f"<div class='cyber-box'>{''.join([s['text']+'<br>' for s in r['segments']])}</div>", unsafe_allow_html=True)
+                    st.write(''.join([s['text']+'\n' for s in r['segments']]))
 
     elif menu == "3. Visão Forense":
         st.header("👁️ Tratamento Forense")
@@ -376,12 +299,12 @@ else:
 
     elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Smart Search CPF")
-        st.markdown("<div style='background-color: #451a03; border: 1px solid #b45309; padding: 10px; border-radius: 8px;'><span class='badge-warning'>⚠️ STATUS: EM HOMOLOGAÇÃO DE API</span></div><br>", unsafe_allow_html=True)
+        st.warning("⚠️ STATUS: EM HOMOLOGAÇÃO DE API")
         cpf = st.text_input("CPF")
         if st.button("PUXAR DOSSIÊ", type="primary") and len(cpf) >= 11:
             with st.spinner("Buscando..."): time.sleep(1)
             st.success("Dados demonstrativos carregados.")
-            st.markdown(f"<div class='cyber-box'><b>Nome:</b> JOHN DOE<br><b>CPF:</b> {cpf}</div>", unsafe_allow_html=True)
+            st.write(f"**Nome:** ALVO DE TESTE\n\n**CPF:** {cpf}")
 
     elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Forense")
@@ -392,7 +315,7 @@ else:
                 with st.spinner("Analisando..."):
                     client = genai.Client(api_key=GEMINI_API_KEY)
                     r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise este perfil criminoso.", Image.open(u_p)])
-                    st.markdown(f"<div class='cyber-box'>{r.text.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                    st.write(r.text)
         with tab_ip:
             ip = st.text_input("IP")
             if st.button("RASTREAR") and ip:
@@ -415,7 +338,7 @@ else:
         st.header("🕵️ Cover - Gerador de Dados Falsos")
         if st.button("GERAR PERSONA"): 
             d = gerar_pessoa_4devs()
-            if d: st.markdown(f"<div class='cyber-box'><b>Nome:</b> {d.get('nome')}<br><b>CPF:</b> {d.get('cpf')}</div>", unsafe_allow_html=True)
+            if d: st.write(f"**Nome:** {d.get('nome')}\n\n**CPF:** {d.get('cpf')}")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Criação de Perfil Cover")
@@ -448,7 +371,7 @@ else:
                         txt = res.text
                         js = re.search(r'```json\n(.*?)\n```', txt, re.DOTALL)
                         relatorio = txt.replace(js.group(0), "") if js else txt
-                        st.markdown(f"<div class='cyber-box'>{relatorio.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                        st.write(relatorio)
                         if js and gerar_mapa_vinculos_json(json.loads(js.group(1))) and os.path.exists("grafo_inteligencia.html"):
                             with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=500)
                     except Exception as err: st.error(f"Erro: {err}")

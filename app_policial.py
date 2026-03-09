@@ -68,7 +68,62 @@ MODULOS_SILVER = [
 st.markdown("""
     <style>
     .stApp {background-color: #0E1117;}
-    .login-container { padding: 50px; background-color: #1f2937; border-radius: 10px; border: 1px solid #374151; text-align: center; }
+    
+    /* ESTILO DO LOGIN CONTAINER - CONFORME IMAGEM 1/2 */
+    .login-box {
+        max-width: 450px;
+        margin: auto;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #374151;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+    }
+    
+    .login-header {
+        background-color: #000000;
+        padding: 40px;
+        text-align: center;
+        border-bottom: 1px solid #374151;
+    }
+    
+    .login-header-logo {
+        max-width: 150px;
+        margin-bottom: 10px;
+    }
+
+    .login-header-title {
+        color: #ffffff;
+        font-size: 24px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    
+    .login-body {
+        background-color: #1f2937;
+        padding: 40px;
+    }
+
+    /* Estilização dos inputs para ficarem idênticos à imagem */
+    .stTextInput>div>div>input {
+        background-color: #111827 !important;
+        border: 1px solid #374151 !important;
+        color: #ffffff !important;
+        padding: 12px 15px 12px 40px !important; /* Espaço para o ícone */
+        border-radius: 8px !important;
+    }
+    
+    /* Botão ENTRAR */
+    .stButton>button {
+        background-color: #2563eb !important;
+        border: None !important;
+        color: #ffffff !important;
+        width: 100% !important;
+        padding: 12px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+    }
+
+    /* Estilos Gerais do App - Mantidos */
     .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
     .plan-gold { background-color: #eab308; color: black; }
     .plan-silver { background-color: #94a3b8; color: black; }
@@ -77,7 +132,6 @@ st.markdown("""
     .cyber-link:hover { color: #7dd3fc !important; text-decoration: underline; }
     .cyber-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #475569; color: #ffffff; margin-bottom: 15px; }
     .badge-warning { background-color: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    .badge-danger { background-color: #ef4444; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -222,20 +276,38 @@ def gerar_pessoa_4devs():
     except: return None
 
 # ==================================================
-# INTERFACE DE LOGIN & SESSÃO
+# INTERFACE DE LOGIN & SESSÃO (REFORMULADA - CEO)
 # ==================================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown("<br><h1 style='text-align:center'>🔒 CERBERUS SaaS</h1>", unsafe_allow_html=True)
-        with st.form("login"):
-            user = st.text_input("Usuário")
-            pwd = st.text_input("Senha", type="password")
-            btn = st.form_submit_button("ENTRAR", type="primary")
-            if btn:
+    # Área em branco para forçar o container no centro da tela
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    
+    # Início do Container Tático de Login (Exatamente como imagem 1/2)
+    st.markdown("""
+        <div class="login-box">
+            <div class="login-header">
+                <img src="https://static.wikia.nocookie.net/nopixel/images/b/bd/Cpd_insignia.png/revision/latest?cb=20221117105741" class="login-header-logo">
+                <div class="login-header-title">🔒 CERBERUS SaaS</div>
+            </div>
+            <div class="login-body">
+    """, unsafe_allow_html=True)
+    
+    # Formulário Streamlit embutido no container HTML
+    with st.form("login_form", clear_on_submit=False):
+        # Campos de entrada com estilo terminal tático (conforme imagem)
+        st.markdown('<div class="input-icon-container">', unsafe_allow_html=True)
+        user = st.text_input("Usuário", placeholder="Login do Agente", label_visibility="collapsed")
+        pwd = st.text_input("Senha", type="password", placeholder="••••••••", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Botão ENTRAR com estilo azul sólido (conforme imagem)
+        btn = st.form_submit_button("ENTRAR")
+        
+        if btn:
+            with st.spinner("Autenticando na Rede Segura..."):
                 u_data, msg = login_user(user, pwd)
                 if u_data:
                     st.session_state['logged_in'] = True
@@ -246,6 +318,13 @@ if not st.session_state['logged_in']:
                     st.rerun()
                 else:
                     st.error(msg)
+                    
+    # Fechamento do Container Tático
+    st.markdown("""
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
 else:
     # ==================================================
     # LOGADO: BARRA LATERAL INTELIGENTE

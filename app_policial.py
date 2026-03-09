@@ -261,65 +261,98 @@ else:
 
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
-        u = st.file_uploader("Carregar Evidência", type=['jpg','png', 'jpeg'])
+        u = st.file_uploader("Carregar Evidência (Imagem)", type=['jpg','png', 'jpeg'])
         
         if u:
             image = Image.open(u)
             st.image(image, caption="Evidência Original", use_container_width=True)
             
-            if st.button("INICIAR VARREDURA TÁTICA", type="primary"):
-                with st.spinner("Analisando armamento e suspeitos..."):
+            if st.button("GERAR RELATÓRIO PERICIAL", type="primary"):
+                with st.spinner("Analisando evidência com IA Tática..."):
                     try:
                         client = genai.Client(api_key=GEMINI_API_KEY)
-                        prompt = "Aja como um perito criminal e analista de inteligência militar. Analise detalhadamente esta imagem e forneça um relatório estruturado com: 1. Quantidade de suspeitos visíveis. 2. Quantidade de armas. 3. Tipo, calibre provável e modelo do armamento. Seja direto."
+                        
+                        # PROMPT ESTRUTURADO MILITAR
+                        prompt = """
+                        Aja como um Perito Criminal de Elite e Analista de Inteligência Policial. 
+                        Analise esta imagem minuciosamente e gere um relatório técnico oficial respondendo EXATAMENTE aos seguintes tópicos de forma direta e objetiva:
+                        
+                        1. QUANTIDADE DE INDIVÍDUOS: (Quantas pessoas aparecem na imagem?)
+                        2. CARACTERÍSTICAS FÍSICAS E VESTIMENTAS: (Descreva roupas, máscaras, tatuagens, coletes balísticos ou itens de identificação).
+                        3. QUANTIDADE DE ARMAS VISÍVEIS: (Quantos armamentos estão visíveis na imagem?)
+                        4. CLASSIFICAÇÃO DO ARMAMENTO: (Para cada arma identifique: Tipo [Ex: Fuzil, Pistola, Espingarda], Modelo provável e Calibre presumido).
+                        5. ACESSÓRIOS BÉLICOS: (Há miras ópticas, carregadores alongados, supressores/silenciadores, bandoleiras?)
+                        6. ANÁLISE DO CENÁRIO: (Descreva o ambiente: é área de mata, comunidade, via pública, interior de imóvel? Qual a condição de luminosidade?)
+                        7. AVALIAÇÃO DE RISCO TÁTICO: (Qual a atitude dos indivíduos? Estão em posição de tiro/prontidão? Há reféns ou civis próximos?)
+                        
+                        Não use emojis nas respostas. Seja extremamente técnico, frio e descritivo.
+                        """
                         r = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, image])
+                        texto_ia = r.text
                         
                         st.markdown("### 📋 Relatório de Inteligência Visual")
-                        st.info(r.text)
+                        st.info(texto_ia)
                         
-                        # --- MOTOR DE GERAÇÃO DO PDF ---
+                        # --- MOTOR DE GERAÇÃO DO PDF OFICIAL CERBERUS ---
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_img:
                             image.convert("RGB").save(tmp_img.name)
                             tmp_img_path = tmp_img.name
                         
                         pdf = FPDF()
                         pdf.add_page()
+                        
+                        # Cabeçalho Oficial
                         pdf.set_font("Arial", 'B', 16)
-                        pdf.cell(0, 10, "CERBERUS - RELATORIO TATICO VISUAL", ln=True, align='C')
+                        pdf.cell(0, 8, "CERBERUS INTEL - SISTEMA DE INTELIGENCIA TATICA", ln=True, align='C')
+                        pdf.set_font("Arial", 'B', 12)
+                        pdf.cell(0, 6, "RELATORIO PERICIAL DE ANALISE VISUAL", ln=True, align='C')
+                        pdf.set_font("Arial", '', 10)
+                        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                        pdf.cell(0, 6, f"Data da Analise: {data_hora}", ln=True, align='C')
                         pdf.ln(5)
                         
-                        # Cálculo para redimensionar e centralizar a imagem no PDF
+                        # Imagem Centralizada
                         w, h = image.size
                         ratio = h / w
                         img_h = 190 * ratio
-                        if img_h > 140: 
-                            img_h = 140
+                        if img_h > 110:  # Limita altura para caber o texto
+                            img_h = 110
                             w_img = img_h / ratio
                             pdf.image(tmp_img_path, x=(210-w_img)/2, w=w_img, h=img_h)
                         else:
                             pdf.image(tmp_img_path, x=10, w=190, h=img_h)
                         
-                        pdf.set_y(pdf.get_y() + img_h + 10)
-                        pdf.set_font("Arial", size=12)
+                        pdf.set_y(pdf.get_y() + img_h + 8)
                         
-                        # Tratamento de texto para evitar erro de caracteres especiais no FPDF
-                        clean_text = r.text.encode('latin-1', 'replace').decode('latin-1')
-                        pdf.multi_cell(0, 7, txt=clean_text)
+                        # Corpo do Texto da IA (Tratado para o PDF)
+                        pdf.set_font("Arial", size=10)
+                        clean_text = texto_ia.replace("**", "") # Remove negrito do markdown que quebra o PDF
+                        clean_text = clean_text.encode('latin-1', 'replace').decode('latin-1')
+                        pdf.multi_cell(0, 6, txt=clean_text)
+                        
+                        pdf.ln(15)
+                        
+                        # Rodapé com Assinatura Dinâmica
+                        pdf.set_font("Arial", 'B', 10)
+                        operador = st.session_state.get('username', 'OPERADOR NÃO IDENTIFICADO').upper()
+                        pdf.cell(0, 5, "_"*60, ln=True, align='C')
+                        pdf.cell(0, 5, f"Assinatura do Agente Analista: {operador}", ln=True, align='C')
+                        pdf.cell(0, 5, "CERBERUS INTEL - PCERJ / PMERJ", ln=True, align='C')
                         
                         pdf_bytes = pdf.output(dest='S').encode('latin-1')
                         
                         st.download_button(
                             label="📥 Baixar Relatório Oficial (PDF)",
                             data=pdf_bytes,
-                            file_name=f"Relatorio_Armas_{int(time.time())}.pdf",
+                            file_name=f"Dossie_Armamento_{int(time.time())}.pdf",
                             mime="application/pdf",
                             type="primary"
                         )
                         
-                        os.remove(tmp_img_path) # Limpa o arquivo temporário do servidor
+                        os.remove(tmp_img_path)
                         
                     except Exception as e: 
-                        st.error(f"Erro na análise: {e}")
+                        st.error(f"Erro na geração do relatório: {e}")
 
     elif menu == "2. Transcrição de Áudio":
         st.header("🎙️ Transcrição Tática")

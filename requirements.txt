@@ -12,3 +12,6 @@ streamlit-folium
 geopy
 pandas
 google-genai
+PyPDF2
+python-docx
+openpyxl

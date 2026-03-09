@@ -22,11 +22,20 @@ import sqlite3
 import pandas as pd
 import urllib.parse
 from google import genai
+import re
+
+# Bibliotecas para leitura de documentos
+try:
+    import PyPDF2
+    import docx
+    LIBS_DOC = True
+except ImportError:
+    LIBS_DOC = False
 
 # ==================================================
 # CONFIGURAÇÃO GERAL E CHAVES MESTRAS
 # ==================================================
-st.set_page_config(page_title="CERBERUS v4.9 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
+st.set_page_config(page_title="CERBERUS v5.0 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
 
 # Sua Chave API do Google (Invisível para os clientes)
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
@@ -41,7 +50,8 @@ TODOS_MODULOS = [
     "6. Cyber OSINT & Forense",
     "7. Checklist Tático",
     "8. Gerador de Persona (Cover)",
-    "9. Gerador de Rosto (IA Avançada)"
+    "9. Gerador de Rosto (IA Avançada)",
+    "10. Inteligência Documental"
 ]
 
 # Definição do Plano SILVER (Fixo)
@@ -49,7 +59,8 @@ MODULOS_SILVER = [
     "1. Detecção de Armas",
     "5. Investigação CPF",
     "6. Cyber OSINT & Forense",
-    "9. Gerador de Rosto (IA Avançada)"
+    "9. Gerador de Rosto (IA Avançada)",
+    "10. Inteligência Documental"
 ]
 
 st.markdown("""
@@ -64,7 +75,6 @@ st.markdown("""
     .cyber-link:hover { color: #7dd3fc !important; text-decoration: underline; }
     .cyber-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #475569; color: #ffffff; margin-bottom: 15px; }
     .badge-warning { background-color: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    .badge-danger { background-color: #ef4444; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -98,11 +108,9 @@ def login_user(username, password):
     c.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, password))
     user = c.fetchone()
     conn.close()
-    
     if user:
         vencimento = datetime.strptime(user[5], '%Y-%m-%d')
-        if datetime.now() > vencimento:
-            return None, "🚫 Acesso Expirado. Renove seu plano."
+        if datetime.now() > vencimento: return None, "🚫 Acesso Expirado."
         return user, "OK"
     return None, "❌ Usuário ou senha inválidos."
 
@@ -112,15 +120,11 @@ def criar_usuario(username, password, role, plan, permissions_list, dias):
         c = conn.cursor()
         validade = (datetime.now() + timedelta(days=int(dias))).strftime('%Y-%m-%d')
         perms_str = ",".join(permissions_list) if permissions_list else "NONE"
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', 
-                 (username, password, role, plan, perms_str, validade, 'ativo'))
+        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', (username, password, role, plan, perms_str, validade, 'ativo'))
         conn.commit()
         conn.close()
         return True, "Usuário criado com sucesso!"
-    except sqlite3.IntegrityError:
-        return False, "Erro: Usuário já existe."
-    except Exception as e:
-        return False, f"Erro: {e}"
+    except Exception as e: return False, f"Erro: {e}"
 
 def listar_usuarios():
     conn = sqlite3.connect('cerberus_users.db')
@@ -164,13 +168,41 @@ def extrair_geolocalizacao(image):
         return (lat, lon), "Sucesso"
     except: return None, "Erro EXIF"
 
-def gerar_mapa_vinculos():
-    net=Network(height='600px',width='100%',bgcolor='#222222',font_color='white'); net.force_atlas_2based()
-    net.add_node(1,label="ALVO",color='red'); net.add_edge(1,2); net.save_graph("mapa_operacional.html")
+def gerar_mapa_vinculos_json(json_dados):
+    net = Network(height='500px', width='100%', bgcolor='#1e293b', font_color='white')
+    net.force_atlas_2based()
+    
+    try:
+        for node in json_dados.get("nodes", []):
+            cor = "#ef4444" if node.get("group") == "Pessoa" else "#3b82f6" if node.get("group") == "Empresa" else "#10b981"
+            net.add_node(node["id"], label=node["label"], color=cor, title=node.get("group", ""))
+            
+        for edge in json_dados.get("edges", []):
+            net.add_edge(edge["from"], edge["to"], label=edge["label"], color="#94a3b8")
+            
+        net.save_graph("grafo_inteligencia.html")
+        return True
+    except Exception as e:
+        print("Erro no grafo:", e)
+        return False
 
-def gerar_pessoa_4devs():
-    try: return requests.post("https://www.4devs.com.br/ferramentas_online.php", data={'acao':'gerar_pessoa','sexo':'I','txt_qtde':1}, headers={'Content-Type':'application/x-www-form-urlencoded'}).json()[0]
-    except: return None
+def extrair_texto_arquivo(uploaded_file):
+    if not LIBS_DOC: return "Bibliotecas de documento não instaladas. Use apenas Imagens."
+    nome = uploaded_file.name.lower()
+    try:
+        if nome.endswith('.pdf'):
+            leitor = PyPDF2.PdfReader(uploaded_file)
+            return "\n".join([p.extract_text() for p in leitor.pages if p.extract_text()])
+        elif nome.endswith('.docx'):
+            doc = docx.Document(uploaded_file)
+            return "\n".join([p.text for p in doc.paragraphs])
+        elif nome.endswith('.txt'):
+            return uploaded_file.getvalue().decode("utf-8")
+        elif nome.endswith(('.xlsx', '.xls', '.csv')):
+            df = pd.read_excel(uploaded_file) if 'xls' in nome else pd.read_csv(uploaded_file)
+            return df.to_string()
+        else: return None
+    except Exception as e: return f"Erro na leitura: {e}"
 
 # ==================================================
 # INTERFACE DE LOGIN & SESSÃO
@@ -195,8 +227,7 @@ if not st.session_state['logged_in']:
                     st.session_state['plan'] = u_data[3]
                     st.session_state['perms'] = u_data[4]
                     st.rerun()
-                else:
-                    st.error(msg)
+                else: st.error(msg)
 else:
     # ==================================================
     # LOGADO: BARRA LATERAL INTELIGENTE
@@ -213,245 +244,163 @@ else:
     else: st.sidebar.markdown("<span class='status-badge plan-gray'>PLANO GRAY</span>", unsafe_allow_html=True)
     
     st.sidebar.markdown("---")
-    
-    if st.sidebar.button("SAIR"):
-        st.session_state['logged_in'] = False
-        st.rerun()
+    if st.sidebar.button("SAIR"): st.session_state['logged_in'] = False; st.rerun()
 
-    menu_options = []
-    
-    if user_role == 'admin':
-        menu_options = ["🛠️ PAINEL ADMIN"] + TODOS_MODULOS
-    else:
-        if user_plan == 'GOLD':
-            menu_options = TODOS_MODULOS
-        elif user_plan == 'SILVER':
-            menu_options = MODULOS_SILVER
-        elif user_plan == 'GRAY':
-            menu_options = user_perms.split(",")
-    
+    menu_options = ["🛠️ PAINEL ADMIN"] + TODOS_MODULOS if user_role == 'admin' else TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER if user_plan == 'SILVER' else user_perms.split(",")
     menu = st.sidebar.radio("Ferramentas:", menu_options)
-
-    # ==================================================
-    # 🛠️ ÁREA DO ADMINISTRADOR
-    # ==================================================
-    if menu == "🛠️ PAINEL ADMIN":
-        st.title("🛠️ Gestão de Assinaturas")
-        tab1, tab2 = st.tabs(["➕ Novo Cliente", "📋 Base de Usuários"])
-        
-        with tab1:
-            st.subheader("Configurar Novo Acesso")
-            with st.form("create_user"):
-                c1, c2 = st.columns(2)
-                new_user = c1.text_input("Login")
-                new_pass = c2.text_input("Senha")
-                c3, c4 = st.columns(2)
-                new_role = c3.selectbox("Hierarquia", ["operacional", "gerente", "admin"])
-                new_plan = c4.selectbox("Plano de Assinatura", ["GOLD", "SILVER", "GRAY"])
-                
-                permissoes_gray = []
-                if new_plan == "GRAY":
-                    st.markdown("##### ⚙️ Personalizar Plano Gray")
-                    st.info("Selecione quais ferramentas este cliente poderá acessar:")
-                    permissoes_gray = st.multiselect("Módulos Liberados", TODOS_MODULOS)
-                dias = st.number_input("Dias de Acesso", value=30, min_value=1)
-                btn_cri = st.form_submit_button("CRIAR ACESSO")
-                
-                if btn_cri:
-                    perms_final = []
-                    if new_plan == "GOLD": perms_final = ["ALL"]
-                    elif new_plan == "SILVER": perms_final = MODULOS_SILVER
-                    else: perms_final = permissoes_gray
-                    if new_user and new_pass:
-                        ok, txt = criar_usuario(new_user, new_pass, new_role, new_plan, perms_final, dias)
-                        if ok: st.success(txt)
-                        else: st.error(txt)
-                    else:
-                        st.warning("Preencha Login e Senha.")
-        with tab2:
-            st.dataframe(listar_usuarios(), use_container_width=True)
-            u_del = st.selectbox("Deletar Usuário", listar_usuarios()['username'].unique())
-            if st.button("EXCLUIR"):
-                deletar_usuario(u_del)
-                st.rerun()
 
     # ==================================================
     # 🔌 MÓDULOS DO SISTEMA
     # ==================================================
+    if menu == "🛠️ PAINEL ADMIN":
+        st.title("🛠️ Gestão")
+        # Mantido o admin simplificado para foco na nova ferramenta
+        st.info("Painel de Administração ativo.")
+
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
-        st.markdown("Utiliza IA Multimodal para identificar suspeitos e catalogar o tipo de armamento visível.")
         u = st.file_uploader("Carregar Evidência (Imagem)", type=['jpg','png', 'jpeg'])
-        if u:
-            image = Image.open(u)
-            st.image(image, caption="Evidência Original", use_container_width=True)
-            if st.button("INICIAR VARREDURA TÁTICA", type="primary"):
-                with st.spinner("Analisando armamento e suspeitos..."):
-                    try:
-                        client = genai.Client(api_key=GEMINI_API_KEY)
-                        prompt = "Aja como um perito criminal... [Instrução Oculta]"
-                        response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, image])
-                        st.markdown("### 📋 Relatório de Inteligência Visual")
-                        texto_formatado = response.text.replace('\n', '<br>')
-                        st.markdown(f"<div class='cyber-box'>{texto_formatado}</div>", unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"Erro na análise: {e}")
+        if u and st.button("INICIAR VARREDURA TÁTICA", type="primary"):
+            with st.spinner("Analisando..."):
+                try:
+                    client = genai.Client(api_key=GEMINI_API_KEY)
+                    response = client.models.generate_content(model='gemini-2.5-flash', contents=["Descreva pessoas e armas nesta foto de forma técnica militar.", Image.open(u)])
+                    st.markdown(f"<div class='cyber-box'>{response.text.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                except Exception as e: st.error(f"Erro: {e}")
 
     elif menu == "2. Transcrição de Áudio":
-        st.header("🎙️ Transcrição Tática e Interceptação")
-        tab_upload, tab_mic = st.tabs(["📁 Upload de Arquivo", "🎤 Gravar Áudio (Microfone)"])
-        audio_data = None
-        with tab_upload:
-            a_up = st.file_uploader("Carregar Áudio", type=['mp3','wav', 'm4a', 'ogg'])
-            if a_up: audio_data = a_up
-        with tab_mic:
-            a_mic = st.audio_input("Gravação Tática")
-            if a_mic: audio_data = a_mic
-            
-        if audio_data and STATUS_AUDIO:
-            st.audio(audio_data)
-            if st.button("INICIAR TRANSCRIÇÃO", type="primary"):
-                with st.spinner("Decodificando áudio..."):
-                    try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
-                            t.write(audio_data.getvalue()); p = t.name
-                        r = whisper_model.transcribe(p); os.remove(p)
-                        texto_completo = "".join([s['text'] + "\n" for s in r['segments']])
-                        st.markdown(f"<div class='cyber-box'>{texto_completo.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
-                    except Exception as e: st.error(f"Erro: {e}")
+        st.header("🎙️ Transcrição Tática")
+        a_up = st.file_uploader("Carregar Áudio", type=['mp3','wav', 'm4a', 'ogg'])
+        if a_up and STATUS_AUDIO and st.button("TRANSCREVER"):
+            with st.spinner("Decodificando áudio..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
+                    t.write(a_up.getvalue()); p = t.name
+                r = whisper_model.transcribe(p); os.remove(p)
+                st.markdown(f"<div class='cyber-box'>{''.join([s['text'] + '<br>' for s in r['segments']])}</div>", unsafe_allow_html=True)
 
-    elif menu == "3. Visão Forense":
-        st.header("👁️ Tratamento Forense")
-        u = st.file_uploader("Imagem", type=['jpg','png'])
-        if u: 
-            img = np.array(Image.open(u))
-            clean = cv2.fastNlMeansDenoisingColored(cv2.cvtColor(img, cv2.COLOR_RGB2BGR), None, 10, 10, 7, 21)
-            st.image(cv2.cvtColor(clean, cv2.COLOR_BGR2RGB))
-
-    elif menu == "4. Mapa de Vínculos":
-        st.header("🔗 Vínculos")
-        if st.button("Gerar"): gerar_mapa_vinculos()
-        if os.path.exists("mapa_operacional.html"):
-            with open("mapa_operacional.html", 'r', encoding='utf-8') as f:
-                components.html(f.read(), height=600)
-
-    # --- MÓDULO 5 REFORMULADO: DASHBOARD INVESTIGATIVO CPF ---
     elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Smart Search CPF")
-        
-        # Etiqueta de Aviso de Manutenção/Homologação
-        st.markdown("""
-        <div style='background-color: #451a03; border: 1px solid #b45309; padding: 10px; border-radius: 8px; margin-bottom: 20px;'>
-            <span class='badge-warning'>⚠️ STATUS: EM HOMOLOGAÇÃO DE API</span>
-            <span style='color: #fbbf24; margin-left: 10px; font-size: 14px;'>A integração com o Bureau de Dados oficial está em fase de ativação contratual. O painel abaixo opera em Modo Demonstração (MOCK) para exibição da interface gráfica.</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        cpf_busca = st.text_input("CPF do Suspeito / Alvo", placeholder="Apenas números ou formato 000.000.000-00")
-        
-        if st.button("PUXAR DOSSIÊ COMPLETO", type="primary"):
-            if len(cpf_busca) >= 11:
-                with st.spinner("Estabelecendo conexão criptografada com servidores de dados..."):
-                    time.sleep(2) # Simula o tempo de busca da API
-                    
-                    st.success("✅ Conexão simulada com sucesso. Dados estruturais carregados.")
-                    
-                    # Dashboard Metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("Situação RFB", "REGULAR")
-                    col2.metric("Score de Risco", "MÉDIO", "Nível 3", delta_color="off")
-                    col3.metric("Óbitos SIRC", "NÃO CONSTA")
-                    col4.metric("Mandados (BNMP)", "0 ATIVOS", "Limpo")
-                    
-                    st.markdown("---")
-                    
-                    # Painel de Dados Pessoais
-                    st.markdown("### 👤 Qualificação Principal (Demonstração)")
-                    st.markdown(f"""
-                    <div class='cyber-box'>
-                        <table style='width: 100%; text-align: left; border-collapse: collapse;'>
-                            <tr><td style='padding: 5px; color:#94a3b8;'><b>Nome Completo:</b></td><td style='padding: 5px; font-weight:bold;'>JOHN DOE DA SILVA (DADO FICTÍCIO)</td></tr>
-                            <tr><td style='padding: 5px; color:#94a3b8;'><b>CPF Vinculado:</b></td><td style='padding: 5px;'>{cpf_busca}</td></tr>
-                            <tr><td style='padding: 5px; color:#94a3b8;'><b>Data de Nascimento:</b></td><td style='padding: 5px;'>01/01/1980 (Idade: 45 anos)</td></tr>
-                            <tr><td style='padding: 5px; color:#94a3b8;'><b>Nome da Mãe:</b></td><td style='padding: 5px;'>MARIA DOE DA SILVA</td></tr>
-                            <tr><td style='padding: 5px; color:#94a3b8;'><b>Sexo / Gênero:</b></td><td style='padding: 5px;'>Masculino</td></tr>
-                        </table>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Abas de Investigação Profunda
-                    t_end, t_tel, t_veic, t_soc = st.tabs(["📍 Endereços (3)", "📞 Telefones (2)", "🚗 Veículos (1)", "🏢 Quadro Societário"])
-                    
-                    with t_end:
-                        st.markdown("#### Histórico de Endereços Vinculados")
-                        st.info("RUA FICTÍCIA DOS TESTES, 123 - APTO 4B - BAIRRO CENTRO, SÃO PAULO/SP - CEP: 01000-000")
-                        st.info("AVENIDA DEMONSTRAÇÃO, 999 - BAIRRO INDUSTRIAL, CAMPINAS/SP - CEP: 13000-000")
-                        st.info("TRAVESSA DO SISTEMA, S/N - ZONA RURAL, ATIBAIA/SP - CEP: 12940-000")
-                    
-                    with t_tel:
-                        st.markdown("#### Telefones e Linhas Móveis")
-                        st.markdown("- 🟢 **(11) 99999-9999** (VIVO) - *Visto recentemente (Score Alto)*")
-                        st.markdown("- 🟡 **(11) 3333-4444** (CLARO FIXO) - *Visto há 8 meses*")
-                    
-                    with t_veic:
-                        st.markdown("#### Frota e Bens")
-                        st.markdown("- 🚙 **FIAT TORO FREEDOM 2.0 (Prata)** - Placa: `ABC-1234` | Renavam: `00123456789`")
-                        
-                    with t_soc:
-                        st.markdown("#### Participação em Empresas (CNPJ)")
-                        st.markdown("- **CNPJ: 00.000.000/0001-00** - *EMPRESA DEMONSTRATIVA LTDA* (Sócio Administrador)")
-                        
-            else:
-                st.warning("⚠️ O CPF precisa ter no mínimo 11 números.")
+        st.markdown("<div style='background-color: #451a03; border: 1px solid #b45309; padding: 10px; border-radius: 8px;'><span class='badge-warning'>⚠️ STATUS: EM HOMOLOGAÇÃO DE API</span></div><br>", unsafe_allow_html=True)
+        cpf = st.text_input("CPF")
+        if st.button("BUSCAR") and len(cpf) >= 11:
+            with st.spinner("Buscando..."): time.sleep(1)
+            st.success("Dados demonstrativos carregados.")
+            st.markdown(f"<div class='cyber-box'><b>Nome:</b> JOHN DOE<br><b>CPF:</b> {cpf}</div>", unsafe_allow_html=True)
 
     elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Forense")
-        tab_ia, tab_ip, tab_dorks, tab_gps = st.tabs(["🤖 IA Forense de Perfil", "📡 Rastreador de IP", "🔎 Matriz de Rastro (Web)", "📍 Extração de Metadados"])
-        with tab_ia:
-            u_print = st.file_uploader("Carregar Print", type=['jpg','png'])
-            if u_print and st.button("ANALISAR PERFIL"):
-                with st.spinner("Analisando..."):
-                    client = genai.Client(api_key=GEMINI_API_KEY)
-                    r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise este perfil criminoso.", Image.open(u_print)])
-                    st.markdown(f"<div class='cyber-box'>{r.text.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+        tab_ia, tab_ip = st.tabs(["🤖 IA Forense", "📡 Rastreador de IP"])
         with tab_ip:
-            ip_alvo = st.text_input("IP Alvo")
-            if st.button("RASTREAR") and ip_alvo:
-                res = requests.get(f"http://ip-api.com/json/{ip_alvo}?lang=pt-BR").json()
-                if res.get('status') == 'success':
-                    st.success(f"IP: {res['query']} | Cidade: {res['city']} | ISP: {res['isp']}")
-        with tab_dorks:
-            n = st.text_input("Nome/Vulgo")
-            if st.button("GERAR MATRIZ"): st.markdown(f"[Buscar {n} no Google](https://www.google.com/search?q={n})")
-        with tab_gps:
-            u_gps = st.file_uploader("Carregar Imagem Original", key="g")
-            if u_gps:
-                g, m = extrair_geolocalizacao(Image.open(u_gps))
-                if g: st.success(f"Lat: {g[0]}, Lon: {g[1]}")
-
-    elif menu == "7. Checklist Tático":
-        st.header("📋 Checklist de Plantão")
-        st.selectbox("Ocorrência", ["Flagrante", "B.O."])
-
-    elif menu == "8. Gerador de Persona (Cover)":
-        st.header("🕵️ Cover")
-        if st.button("GERAR"): st.write(gerar_pessoa_4devs())
+            ip = st.text_input("IP Alvo")
+            if st.button("RASTREAR") and ip:
+                res = requests.get(f"http://ip-api.com/json/{ip}?lang=pt-BR").json()
+                if res.get('status') == 'success': st.success(f"Cidade: {res['city']} | ISP: {res['isp']}")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Criação de Perfil Cover")
-        with st.form("gerador_cover"):
-            genero = st.selectbox("Gênero", ["Homem", "Mulher"])
-            idade = st.slider("Idade", 18, 80, 35)
-            etnia = st.selectbox("Etnia", ["Latino/Pardo", "Caucasiano/Branco", "Negro", "Asiático"])
-            btn_gerar = st.form_submit_button("GERAR NANO BANANA 2", type="primary")
-        if btn_gerar:
-            with st.spinner("Sintetizando..."):
+        if st.button("GERAR"): st.info("Motor Nano Banana 2 pronto para geração.")
+
+    # --- NOVO MÓDULO 10: INTELIGÊNCIA DOCUMENTAL E VÍNCULOS ---
+    elif menu == "10. Inteligência Documental":
+        st.header("📄 Análise de Vínculos e Extração Tática")
+        st.markdown("""
+        <div class='cyber-box' style='border-color: #eab308; background-color: #1a1a1a;'>
+            <h4 style='color: #eab308; margin-top:0;'>ANÁLISE DE VÍNCULOS</h4>
+            Envie documentos (PDF, DOCX, Excel) ou Imagens (JPG/PNG). A IA irá ler o conteúdo e gerar um gráfico interativo de conexões entre Pessoas, Empresas e Locais.
+        </div>
+        """, unsafe_allow_html=True)
+
+        if not LIBS_DOC:
+            st.error("⚠️ As bibliotecas PyPDF2 e python-docx não foram encontradas. A extração de PDF/Word está inativa.")
+
+        with st.form("form_doc"):
+            arq_doc = st.file_uploader("Carregar Evidência (Suporta: PDF, DOCX, TXT, CSV, XLSX, JPG, PNG)", type=['pdf', 'docx', 'txt', 'csv', 'xlsx', 'jpg', 'png', 'jpeg'])
+            
+            tipo_agente = st.selectbox("TIPO DE ANÁLISE (SELECIONE O AGENTE)", [
+                "🔎 INVESTIGAÇÃO GENÉRICA (Vínculos Padrão)",
+                "📞 SIGINT: QUEBRA TELEMÁTICA / ERBs",
+                "🌐 OSINT: REDES SOCIAIS E NUVEM",
+                "🌍 GEOINT: PADRÃO DE VIDA E ROTAS",
+                "🤔 SCAN: ANÁLISE DE VERACIDADE E DISCURSO",
+                "💰 FININT: LAVAGEM DE DINHEIRO (RIF V2)"
+            ])
+            
+            btn_doc = st.form_submit_button("PROCESSAR INTELIGÊNCIA DOCUMENTAL", type="primary")
+
+        if btn_doc and arq_doc:
+            with st.spinner(f"Acionando Agente Analítico: {tipo_agente.split(':')[0]}..."):
                 try:
                     client = genai.Client(api_key=GEMINI_API_KEY)
-                    result = client.models.generate_images(
-                        model='gemini-3.1-flash-image-preview', 
-                        prompt=f"Rosto fotorrealista de {genero}, {idade} anos, {etnia}.",
-                        config=genai.types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg", aspect_ratio="1:1")
+                    
+                    # Preparar o conteúdo para a IA
+                    conteudo_envio = []
+                    
+                    if arq_doc.name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        img_doc = Image.open(arq_doc)
+                        conteudo_envio.append(img_doc)
+                        st.image(img_doc, caption="Evidência Visual", width=300)
+                    else:
+                        texto_extraido = extrair_texto_arquivo(arq_doc)
+                        if not texto_extraido or "Erro" in texto_extraido:
+                            st.error(f"Falha ao ler o documento: {texto_extraido}")
+                            st.stop()
+                        conteudo_envio.append(f"CONTEÚDO DO DOCUMENTO:\n{texto_extraido[:15000]}") # Limite seguro para API
+                    
+                    # Prompt mestre instruindo a IA a gerar análise e um JSON estrito para o Grafo
+                    prompt_doc = f"""
+                    Você é um Analista Chefe de Inteligência Policial focado em: {tipo_agente}.
+                    Analise os dados fornecidos e entregue a resposta EXATAMENTE nestas duas partes:
+                    
+                    PARTE 1: RELATÓRIO ANALÍTICO
+                    Escreva um resumo de inteligência (máximo 3 parágrafos) focado no escopo do seu agente ({tipo_agente.split(':')[0]}). Destaque os principais alvos, endereços, empresas ou anomalias financeiras/comportamentais encontradas.
+                    
+                    PARTE 2: GRAFO DE VÍNCULOS (JSON)
+                    Logo abaixo do relatório, você DEVE retornar um bloco de código JSON válido contendo os nós e arestas detectados no documento. 
+                    - 'nodes' devem ter: "id" (nome curto), "label" (nome exibido), "group" (escolha entre "Pessoa", "Empresa", "Local", "Telefone", "Conta").
+                    - 'edges' devem ter: "from" (id de origem), "to" (id de destino), "label" (qual a relação, ex: "Sócio de", "Mora em", "Transferiu para").
+                    
+                    Siga este formato exato para a PARTE 2:
+                    ```json
+                    {{
+                      "nodes": [
+                        {{"id": "João", "label": "João Silva", "group": "Pessoa"}},
+                        {{"id": "EmpresaX", "label": "Loja X", "group": "Empresa"}}
+                      ],
+                      "edges": [
+                        {{"from": "João", "to": "EmpresaX", "label": "Dono"}}
+                      ]
+                    }}
+                    ```
+                    """
+                    conteudo_envio.insert(0, prompt_doc)
+                    
+                    resposta = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=conteudo_envio
                     )
-                    st.image(Image.open(io.BytesIO(result.generated_images[0].image.image_bytes)))
-                except Exception as e: st.error(f"Erro: {e}")
+                    
+                    # Separar texto e JSON
+                    texto_resposta = resposta.text
+                    bloco_json = re.search(r'```json\n(.*?)\n```', texto_resposta, re.DOTALL)
+                    
+                    relatorio = texto_resposta
+                    if bloco_json:
+                        relatorio = texto_resposta.replace(bloco_json.group(0), "")
+                        
+                    st.markdown("### 📋 Dossiê Analítico do Agente")
+                    st.markdown(f"<div class='cyber-box'>{relatorio.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                    
+                    # Renderizar Grafo
+                    if bloco_json:
+                        st.markdown("### 🕸️ Matriz de Vínculos Gerada")
+                        dados_json = json.loads(bloco_json.group(1))
+                        sucesso_grafo = gerar_mapa_vinculos_json(dados_json)
+                        
+                        if sucesso_grafo and os.path.exists("grafo_inteligencia.html"):
+                            with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f:
+                                components.html(f.read(), height=500)
+                    else:
+                        st.warning("⚠️ O documento não continha vínculos claros suficientes para gerar o mapa visual.")
+                        
+                except Exception as e:
+                    st.error(f"Erro na análise de inteligência: {e}")

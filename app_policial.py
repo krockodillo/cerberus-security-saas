@@ -262,13 +262,64 @@ else:
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
         u = st.file_uploader("Carregar Evidência", type=['jpg','png', 'jpeg'])
-        if u and st.button("INICIAR VARREDURA TÁTICA", type="primary"):
-            with st.spinner("Analisando..."):
-                try:
-                    client = genai.Client(api_key=GEMINI_API_KEY)
-                    r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise armas e pessoas de forma militar.", Image.open(u)])
-                    st.write(r.text)
-                except Exception as e: st.error(f"Erro: {e}")
+        
+        if u:
+            image = Image.open(u)
+            st.image(image, caption="Evidência Original", use_container_width=True)
+            
+            if st.button("INICIAR VARREDURA TÁTICA", type="primary"):
+                with st.spinner("Analisando armamento e suspeitos..."):
+                    try:
+                        client = genai.Client(api_key=GEMINI_API_KEY)
+                        prompt = "Aja como um perito criminal e analista de inteligência militar. Analise detalhadamente esta imagem e forneça um relatório estruturado com: 1. Quantidade de suspeitos visíveis. 2. Quantidade de armas. 3. Tipo, calibre provável e modelo do armamento. Seja direto."
+                        r = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, image])
+                        
+                        st.markdown("### 📋 Relatório de Inteligência Visual")
+                        st.info(r.text)
+                        
+                        # --- MOTOR DE GERAÇÃO DO PDF ---
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_img:
+                            image.convert("RGB").save(tmp_img.name)
+                            tmp_img_path = tmp_img.name
+                        
+                        pdf = FPDF()
+                        pdf.add_page()
+                        pdf.set_font("Arial", 'B', 16)
+                        pdf.cell(0, 10, "CERBERUS - RELATORIO TATICO VISUAL", ln=True, align='C')
+                        pdf.ln(5)
+                        
+                        # Cálculo para redimensionar e centralizar a imagem no PDF
+                        w, h = image.size
+                        ratio = h / w
+                        img_h = 190 * ratio
+                        if img_h > 140: 
+                            img_h = 140
+                            w_img = img_h / ratio
+                            pdf.image(tmp_img_path, x=(210-w_img)/2, w=w_img, h=img_h)
+                        else:
+                            pdf.image(tmp_img_path, x=10, w=190, h=img_h)
+                        
+                        pdf.set_y(pdf.get_y() + img_h + 10)
+                        pdf.set_font("Arial", size=12)
+                        
+                        # Tratamento de texto para evitar erro de caracteres especiais no FPDF
+                        clean_text = r.text.encode('latin-1', 'replace').decode('latin-1')
+                        pdf.multi_cell(0, 7, txt=clean_text)
+                        
+                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                        
+                        st.download_button(
+                            label="📥 Baixar Relatório Oficial (PDF)",
+                            data=pdf_bytes,
+                            file_name=f"Relatorio_Armas_{int(time.time())}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
+                        
+                        os.remove(tmp_img_path) # Limpa o arquivo temporário do servidor
+                        
+                    except Exception as e: 
+                        st.error(f"Erro na análise: {e}")
 
     elif menu == "2. Transcrição de Áudio":
         st.header("🎙️ Transcrição Tática")

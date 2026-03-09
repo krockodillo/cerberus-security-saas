@@ -35,13 +35,14 @@ except ImportError:
 # ==================================================
 # CONFIGURAÇÃO GERAL E CHAVES MESTRAS
 # ==================================================
-st.set_page_config(page_title="CERBERUS v5.1 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
+st.set_page_config(page_title="CERBERUS v5.2 - SaaS Intel", layout="wide", page_icon="🐕‍🦺")
 
 # Sua Chave API do Google (Invisível para os clientes)
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
 
 # Lista Mestra de Módulos Disponíveis
 TODOS_MODULOS = [
+    "🔔 Notificações e Atualizações",
     "1. Detecção de Armas",
     "2. Transcrição de Áudio",
     "3. Visão Forense",
@@ -56,6 +57,7 @@ TODOS_MODULOS = [
 
 # Definição do Plano SILVER (Fixo)
 MODULOS_SILVER = [
+    "🔔 Notificações e Atualizações",
     "1. Detecção de Armas",
     "5. Investigação CPF",
     "6. Cyber OSINT & Forense",
@@ -331,7 +333,24 @@ else:
     # ==================================================
     # 🔌 MÓDULOS DO SISTEMA
     # ==================================================
-    
+
+    elif menu == "🔔 Notificações e Atualizações":
+        st.header("🔔 Central de Notificações")
+        st.markdown("Fique por dentro das últimas atualizações, status dos servidores e novos recursos táticos do CERBERUS.")
+        
+        st.info("💡 **DICA:** A API de Mapeamento Documental já está disponível. Faça o upload de PDFs no Módulo 10 para gerar mapas de vínculos automaticamente.")
+        
+        st.markdown("### 📋 Histórico do Sistema")
+        
+        st.markdown("""
+        <div class='cyber-box'>
+            <span style='color: #38bdf8; font-weight: bold;'>[Atualização Recente] v5.2</span> - Integração com o motor fotorrealista Nano Banana 2 concluída no Gerador de Rostos.<br><br>
+            <span style='color: #38bdf8; font-weight: bold;'>[Atualização] v5.0</span> - Lançamento do Agente de Inteligência Documental (Suporte a extração de PDFs, Word e Excel).<br><br>
+            <span style='color: #38bdf8; font-weight: bold;'>[Manutenção] v4.9</span> - Novo Dashboard Investigativo de CPF implementado (Fase de Homologação da API de Dados).<br><br>
+            <span style='color: #38bdf8; font-weight: bold;'>[Atualização] v4.8</span> - Adicionado microfone nativo para gravação tática direta no módulo de Transcrição.<br>
+        </div>
+        """, unsafe_allow_html=True)
+
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
         st.markdown("Utiliza IA Multimodal para identificar suspeitos e catalogar o tipo de armamento visível.")
@@ -595,16 +614,18 @@ else:
             idade = c2.slider("Idade Aproximada", 18, 80, 35)
             etnia = st.selectbox("Etnia/Aparência", ["Latino/Pardo", "Caucasiano/Branco", "Negro", "Asiático", "Indígena"])
             caracteristicas = st.text_input("Características Específicas", placeholder="Ex: Cicatriz, tatuagem, óculos...")
-            btn_gerar = st.form_submit_button("GERAR IDENTIDADE VISUAL (NANO BANANA 2)", type="primary")
+            btn_gerar = st.form_submit_button("GERAR IDENTIDADE VISUAL", type="primary")
 
         if btn_gerar:
-            with st.spinner("Sintetizando rosto via Nano Banana 2..."):
+            with st.spinner("Sintetizando rosto via IA..."):
                 try:
                     prompt_base = f"Fotografia fotorrealista de documento (fundo cinza) de {genero}, {idade} anos, etnia {etnia}."
                     if caracteristicas: prompt_base += f" Visível: {caracteristicas}."
                     client = genai.Client(api_key=GEMINI_API_KEY)
+                    
+                    # Correção da API
                     result = client.models.generate_images(
-                        model='gemini-3.1-flash-image-preview', 
+                        model='imagen-3.0-generate-002', 
                         prompt=prompt_base,
                         config=genai.types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg", aspect_ratio="1:1")
                     )

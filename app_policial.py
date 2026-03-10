@@ -377,13 +377,13 @@ else:
             img = np.array(Image.open(u))
             st.image(cv2.cvtColor(cv2.fastNlMeansDenoisingColored(cv2.cvtColor(img, cv2.COLOR_RGB2BGR), None, 10, 10, 7, 21), cv2.COLOR_BGR2RGB))
 
-    elif menu == "4. Mapa de Vínculos":
+elif menu == "4. Mapa de Vínculos":
         st.header("🔗 Vínculos (Manual)")
         if st.button("Gerar Base"): gerar_mapa_vinculos()
         if os.path.exists("mapa_operacional.html"):
             with open("mapa_operacional.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=600)
 
-elif menu == "5. Investigação CPF":
+    elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Smart Search CPF")
         st.warning("⚠️ STATUS: EM HOMOLOGAÇÃO DE API")
         cpf = st.text_input("CPF")

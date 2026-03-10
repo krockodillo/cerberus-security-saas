@@ -383,7 +383,7 @@ else:
         if os.path.exists("mapa_operacional.html"):
             with open("mapa_operacional.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=600)
 
-    elif menu == "5. Investigação CPF":
+elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Smart Search CPF")
         st.warning("⚠️ STATUS: EM HOMOLOGAÇÃO DE API")
         cpf = st.text_input("CPF")
@@ -392,7 +392,7 @@ else:
             st.success("Dados demonstrativos carregados.")
             st.write(f"**Nome:** ALVO DE TESTE\n\n**CPF:** {cpf}")
 
-elif menu == "6. Cyber OSINT & Forense":
+    elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Forense")
         tab_ia, tab_ip, tab_d = st.tabs(["🤖 IA Forense", "📡 IP", "🔎 Dorks"])
         

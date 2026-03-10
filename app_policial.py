@@ -31,6 +31,9 @@ try:
 except ImportError:
     LIBS_DOC = False
 
+# ==============================================================================
+# CONFIGURAÇÃO GERAL
+# ==============================================================================
 st.set_page_config(page_title="CERBERUS - Sistema Tático", layout="wide", page_icon="🛡️")
 
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
@@ -60,13 +63,18 @@ MODULOS_SILVER = [
     "11. Geolocalização Forense"
 ]
 
+# ==============================================================================
+# BANCO DE DADOS E GESTÃO DE USUÁRIOS
+# ==============================================================================
 def init_db():
     conn = sqlite3.connect('cerberus_users.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, permissions TEXT, vencimento TEXT, status TEXT)''')
-    c.execute('SELECT * FROM usuarios WHERE username = "admin"')
+    
+    # Cria o usuário LEANDRO como Mestre (CEO)
+    c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
     if not c.fetchone():
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', ('admin', 'admin', 'admin', 'GOLD', 'ALL', '2099-12-31', 'ativo'))
+        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', ('leandro', '239546Dl', 'admin', 'GOLD', 'ALL', '2099-12-31', 'ativo'))
         conn.commit()
     conn.close()
 
@@ -101,7 +109,7 @@ def listar_usuarios():
     return df
 
 def deletar_usuario(username):
-    if username == "admin": return False
+    if username == "leandro": return False # Proteção para não deletar o CEO
     conn = sqlite3.connect('cerberus_users.db')
     c = conn.cursor()
     c.execute("DELETE FROM usuarios WHERE username=?", (username,))
@@ -111,6 +119,9 @@ def deletar_usuario(username):
 
 init_db()
 
+# ==============================================================================
+# MOTORES E FUNÇÕES CORE
+# ==============================================================================
 @st.cache_resource
 def carregar_whisper(): return whisper.load_model("tiny")
 try: whisper_model = carregar_whisper(); STATUS_AUDIO = True
@@ -172,7 +183,7 @@ def gerar_pessoa_4devs():
     except: return None
 
 # ==============================================================================
-# TELA DE LOGIN PURA (SEM CSS)
+# TELA DE LOGIN (NATIVA E LIMPA)
 # ==============================================================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -210,7 +221,7 @@ if not st.session_state['logged_in']:
 
 else:
     # ==============================================================================
-    # ÁREA LOGADA
+    # ÁREA LOGADA - MÓDULOS DO SISTEMA
     # ==============================================================================
     user_role = st.session_state['role']
     user_plan = st.session_state['plan']
@@ -259,7 +270,7 @@ else:
     elif menu == "🔔 Notificações e Atualizações":
         st.header("🔔 Central de Notificações")
         st.markdown("### Histórico")
-        st.markdown("- **[Atualização] v5.7** - Reestruturação Completa e Módulo 11 (Geolocalização) Adicionado.")
+        st.markdown("- **[Atualização] v5.8** - Módulo 1 (Armas + PDF), Módulo 11 (Geo Auto) e Login Limpo integrados.")
 
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
@@ -475,4 +486,4 @@ else:
                     st_folium(m, height=400, use_container_width=True)
                 else:
                     st.error("❌ EVIDÊNCIA LIMPA: Nenhum dado de GPS (EXIF) foi encontrado neste arquivo.")
-                    st.warning("**NOTA OPERACIONAL:** Arquivos recebidos via WhatsApp, Redes Sociais ou salvos como Printscreen perdem os metadados de localização automaticamente. Utilize a foto original.")
+                    st.warning("**NOTA OPERACIONAL:** Arquivos recebidos via WhatsApp, Redes Sociais ou salvos como Printscreen perdem os metadados de localização automaticamente. Utilize a foto original extraída do aparelho.")

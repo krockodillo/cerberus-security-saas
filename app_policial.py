@@ -259,7 +259,7 @@ else:
     elif menu == "🔔 Notificações e Atualizações":
         st.header("🔔 Central de Notificações")
         st.markdown("### Histórico")
-        st.markdown("- **[Atualização] v5.6** - Limpeza total de CSS e segurança nativa.")
+        st.markdown("- **[Atualização] v5.7** - Reestruturação Completa e Módulo 11 (Geolocalização) Adicionado.")
 
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")
@@ -274,7 +274,6 @@ else:
                     try:
                         client = genai.Client(api_key=GEMINI_API_KEY)
                         
-                        # PROMPT ESTRUTURADO MILITAR
                         prompt = """
                         Aja como um Perito Criminal de Elite e Analista de Inteligência Policial. 
                         Analise esta imagem minuciosamente e gere um relatório técnico oficial respondendo EXATAMENTE aos seguintes tópicos de forma direta e objetiva:
@@ -295,7 +294,6 @@ else:
                         st.markdown("### 📋 Relatório de Inteligência Visual")
                         st.info(texto_ia)
                         
-                        # --- MOTOR DE GERAÇÃO DO PDF OFICIAL CERBERUS ---
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_img:
                             image.convert("RGB").save(tmp_img.name)
                             tmp_img_path = tmp_img.name
@@ -303,7 +301,6 @@ else:
                         pdf = FPDF()
                         pdf.add_page()
                         
-                        # Cabeçalho Oficial
                         pdf.set_font("Arial", 'B', 16)
                         pdf.cell(0, 8, "CERBERUS INTEL - SISTEMA DE INTELIGENCIA TATICA", ln=True, align='C')
                         pdf.set_font("Arial", 'B', 12)
@@ -313,11 +310,10 @@ else:
                         pdf.cell(0, 6, f"Data da Analise: {data_hora}", ln=True, align='C')
                         pdf.ln(5)
                         
-                        # Imagem Centralizada
                         w, h = image.size
                         ratio = h / w
                         img_h = 190 * ratio
-                        if img_h > 110:  # Limita altura para caber o texto
+                        if img_h > 110:
                             img_h = 110
                             w_img = img_h / ratio
                             pdf.image(tmp_img_path, x=(210-w_img)/2, w=w_img, h=img_h)
@@ -326,15 +322,13 @@ else:
                         
                         pdf.set_y(pdf.get_y() + img_h + 8)
                         
-                        # Corpo do Texto da IA (Tratado para o PDF)
                         pdf.set_font("Arial", size=10)
-                        clean_text = texto_ia.replace("**", "") # Remove negrito do markdown que quebra o PDF
+                        clean_text = texto_ia.replace("**", "") 
                         clean_text = clean_text.encode('latin-1', 'replace').decode('latin-1')
                         pdf.multi_cell(0, 6, txt=clean_text)
                         
                         pdf.ln(15)
                         
-                        # Rodapé com Assinatura Dinâmica
                         pdf.set_font("Arial", 'B', 10)
                         operador = st.session_state.get('username', 'OPERADOR NÃO IDENTIFICADO').upper()
                         pdf.cell(0, 5, "_"*60, ln=True, align='C')
@@ -377,7 +371,7 @@ else:
             img = np.array(Image.open(u))
             st.image(cv2.cvtColor(cv2.fastNlMeansDenoisingColored(cv2.cvtColor(img, cv2.COLOR_RGB2BGR), None, 10, 10, 7, 21), cv2.COLOR_BGR2RGB))
 
-elif menu == "4. Mapa de Vínculos":
+    elif menu == "4. Mapa de Vínculos":
         st.header("🔗 Vínculos (Manual)")
         if st.button("Gerar Base"): gerar_mapa_vinculos()
         if os.path.exists("mapa_operacional.html"):
@@ -460,20 +454,19 @@ elif menu == "4. Mapa de Vínculos":
                             with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=500)
                     except Exception as err: st.error(f"Erro: {err}")
 
-elif menu == "11. Geolocalização Forense":
+    elif menu == "11. Geolocalização Forense":
         st.header("📍 Extração Automática de Metadados (EXIF)")
-        st.markdown("Faça o upload da evidência. O sistema fará a varredura automática por coordenadas GPS ocultas no arquivo.")
+        st.markdown("Faça o upload da evidência original. O sistema fará a varredura automática por coordenadas GPS ocultas no arquivo.")
         
         u_geo = st.file_uploader("Carregar Imagem Original (.JPG / .JPEG)", type=['jpg', 'jpeg', 'png'])
         
-        # ACIONADOR AUTOMÁTICO (Não tem botão, se subir a foto ele roda)
         if u_geo:
             img_geo = Image.open(u_geo)
             st.image(img_geo, caption="Evidência Submetida", width=300)
             
             with st.spinner("Varrendo arquivo em busca de dados de satélite..."):
                 geo, msg = extrair_geolocalizacao(img_geo)
-                time.sleep(1) # Efeito tático de processamento
+                time.sleep(1) 
                 
                 if geo:
                     st.success(f"✅ ALVO LOCALIZADO! Latitude: {geo[0]} | Longitude: {geo[1]}")
@@ -482,8 +475,4 @@ elif menu == "11. Geolocalização Forense":
                     st_folium(m, height=400, use_container_width=True)
                 else:
                     st.error("❌ EVIDÊNCIA LIMPA: Nenhum dado de GPS (EXIF) foi encontrado neste arquivo.")
-                    st.warning("""
-                    **NOTA TÉCNICA OPERACIONAL:** Imagens recebidas via WhatsApp, Redes Sociais ou salvas como Printscreen perdem os metadados de localização automaticamente. 
-                    Para que a extração funcione, você deve utilizar o arquivo original tirado diretamente pela câmera do dispositivo investigado.
-                    """)
-                    
+                    st.warning("**NOTA OPERACIONAL:** Arquivos recebidos via WhatsApp, Redes Sociais ou salvos como Printscreen perdem os metadados de localização automaticamente. Utilize a foto original.")

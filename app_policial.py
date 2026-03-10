@@ -39,7 +39,6 @@ st.set_page_config(page_title="CERBERUS - Sistema Tático", layout="wide", page_
 GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
 
 TODOS_MODULOS = [
-    "🔔 Notificações e Atualizações",
     "1. Detecção de Armas",
     "2. Transcrição de Áudio",
     "3. Visão Forense",
@@ -54,7 +53,6 @@ TODOS_MODULOS = [
 ]
 
 MODULOS_SILVER = [
-    "🔔 Notificações e Atualizações",
     "1. Detecção de Armas",
     "5. Investigação CPF",
     "6. Cyber OSINT & Forense",
@@ -64,19 +62,47 @@ MODULOS_SILVER = [
 ]
 
 # ==============================================================================
-# BANCO DE DADOS E GESTÃO DE USUÁRIOS
+# BANCO DE DADOS E GESTÃO DE USUÁRIOS/NOTIFICAÇÕES
 # ==============================================================================
 def init_db():
     conn = sqlite3.connect('cerberus_users.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, permissions TEXT, vencimento TEXT, status TEXT)''')
     
+    # Tabela de Notificações
+    c.execute('''CREATE TABLE IF NOT EXISTS notificacoes (id INTEGER PRIMARY KEY AUTOINCREMENT, destinatario TEXT, mensagem TEXT, imagem BLOB, data_envio TEXT)''')
+    
     # Cria o usuário LEANDRO como Mestre (CEO)
     c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
     if not c.fetchone():
         c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', ('leandro', '239546Dl', 'admin', 'GOLD', 'ALL', '2099-12-31', 'ativo'))
         conn.commit()
+        
+    # Automação: Primeira notificação de sistema automática para TODOS
+    c.execute('SELECT count(*) FROM notificacoes')
+    if c.fetchone()[0] == 0:
+        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+        msg_auto = "SISTEMA ATUALIZADO: A central de notificações e o seu perfil agora ficam localizados no canto superior direito da tela."
+        c.execute('INSERT INTO notificacoes (destinatario, mensagem, imagem, data_envio) VALUES (?, ?, ?, ?)', ('TODOS', msg_auto, None, data_atual))
+        conn.commit()
+        
     conn.close()
+
+def enviar_notificacao(destinatario, mensagem, imagem_bytes=None):
+    conn = sqlite3.connect('cerberus_users.db')
+    c = conn.cursor()
+    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+    c.execute('INSERT INTO notificacoes (destinatario, mensagem, imagem, data_envio) VALUES (?, ?, ?, ?)', (destinatario, mensagem, imagem_bytes, data_atual))
+    conn.commit()
+    conn.close()
+
+def ler_notificacoes(username):
+    conn = sqlite3.connect('cerberus_users.db')
+    c = conn.cursor()
+    c.execute('SELECT mensagem, imagem, data_envio FROM notificacoes WHERE destinatario = "TODOS" OR destinatario = ? ORDER BY id DESC', (username,))
+    notas = c.fetchall()
+    conn.close()
+    return notas
 
 def login_user(username, password):
     conn = sqlite3.connect('cerberus_users.db')
@@ -221,31 +247,56 @@ if not st.session_state['logged_in']:
 
 else:
     # ==============================================================================
-    # ÁREA LOGADA - MÓDULOS DO SISTEMA
+    # ÁREA LOGADA - MÓDULOS DO SISTEMA E TOPO SUPERIOR
     # ==============================================================================
     user_role = st.session_state['role']
     user_plan = st.session_state['plan']
     user_perms = st.session_state['perms']
+    username_logado = st.session_state['username']
     
+    # --- ÁREA DO TOPO DIREITO (Perfil e Notificações) ---
+    col_espaco, col_notif, col_perfil = st.columns([8, 1.5, 1.5])
+    
+    with col_notif:
+        with st.popover("🔔 Avisos"):
+            st.markdown("**Caixa de Mensagens**")
+            notas = ler_notificacoes(username_logado)
+            if not notas:
+                st.info("Nenhuma novidade no momento.")
+            else:
+                for msg, img_blob, data in notas:
+                    st.caption(data)
+                    st.write(msg)
+                    if img_blob:
+                        st.image(Image.open(io.BytesIO(img_blob)), use_container_width=True)
+                    st.divider()
+
+    with col_perfil:
+        with st.popover("👤 Perfil"):
+            st.markdown(f"**Agente:** {username_logado.upper()}")
+            st.markdown(f"**Plano:** {user_plan}")
+            st.divider()
+            if st.button("Sair do Sistema", use_container_width=True):
+                st.session_state['logged_in'] = False
+                st.rerun()
+    st.markdown("---")
+    
+    # --- MENU LATERAL ---
     st.sidebar.title("🐕‍🦺 CERBERUS")
-    st.sidebar.caption(f"Usuário: {st.session_state['username']}")
-    
     if user_plan == 'GOLD': st.sidebar.markdown("**PLANO GOLD**")
     elif user_plan == 'SILVER': st.sidebar.markdown("**PLANO SILVER**")
     else: st.sidebar.markdown("**PLANO GRAY**")
     
     st.sidebar.markdown("---")
-    if st.sidebar.button("SAIR DO SISTEMA"):
-        st.session_state['logged_in'] = False
-        st.rerun()
 
     menu_options = ["🛠️ PAINEL ADMIN"] + TODOS_MODULOS if user_role == 'admin' else TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER if user_plan == 'SILVER' else user_perms.split(",")
     menu = st.sidebar.radio("Ferramentas:", menu_options)
 
     if menu == "🛠️ PAINEL ADMIN":
-        st.title("🛠️ Gestão de Assinaturas")
-        tab1, tab2 = st.tabs(["➕ Novo Cliente", "📋 Base de Usuários"])
-        with tab1:
+        st.title("🛠️ Gestão e Comunicação")
+        tab_clientes, tab_base, tab_notif = st.tabs(["➕ Novo Cliente", "📋 Base de Usuários", "📢 Disparar Notificações"])
+        
+        with tab_clientes:
             st.subheader("Configurar Novo Acesso")
             with st.form("create_user"):
                 c1, c2 = st.columns(2)
@@ -256,21 +307,34 @@ else:
                 new_plan = c4.selectbox("Plano de Assinatura", ["GOLD", "SILVER", "GRAY"])
                 permissoes_gray = st.multiselect("Módulos Liberados", TODOS_MODULOS) if new_plan == "GRAY" else []
                 dias = st.number_input("Dias de Acesso", value=30, min_value=1)
-                if st.form_submit_button("CRIAR ACESSO"):
+                if st.form_submit_button("CRIAR ACESSO", type="primary"):
                     perms_final = ["ALL"] if new_plan == "GOLD" else MODULOS_SILVER if new_plan == "SILVER" else permissoes_gray
                     if new_user and new_pass:
                         ok, txt = criar_usuario(new_user, new_pass, new_role, new_plan, perms_final, dias)
                         st.success(txt) if ok else st.error(txt)
                     else: st.warning("Preencha tudo.")
-        with tab2:
+                    
+        with tab_base:
             st.dataframe(listar_usuarios(), use_container_width=True)
             u_del = st.selectbox("Deletar Usuário", listar_usuarios()['username'].unique())
             if st.button("EXCLUIR"): deletar_usuario(u_del); st.rerun()
-
-    elif menu == "🔔 Notificações e Atualizações":
-        st.header("🔔 Central de Notificações")
-        st.markdown("### Histórico")
-        st.markdown("- **[Atualização] v5.8** - Módulo 1 (Armas + PDF), Módulo 11 (Geo Auto) e Login Limpo integrados.")
+            
+        with tab_notif:
+            st.subheader("Central de Transmissão")
+            st.markdown("Envie recados, alertas ou imagens para os usuários do sistema.")
+            with st.form("form_disparo"):
+                lista_users = ["TODOS"] + list(listar_usuarios()['username'].unique())
+                alvo_notificacao = st.selectbox("Para quem deseja enviar?", lista_users)
+                texto_msg = st.text_area("Mensagem:", placeholder="Escreva o aviso aqui...")
+                imagem_up = st.file_uploader("Anexar Imagem (Opcional)", type=['jpg', 'png', 'jpeg'])
+                
+                if st.form_submit_button("DISPARAR NOTIFICAÇÃO", type="primary"):
+                    if texto_msg:
+                        bytes_img = imagem_up.getvalue() if imagem_up else None
+                        enviar_notificacao(alvo_notificacao, texto_msg, bytes_img)
+                        st.success(f"✅ Notificação enviada com sucesso para: {alvo_notificacao}")
+                    else:
+                        st.error("A mensagem não pode estar vazia.")
 
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise Tática e Identificação de Armamento")

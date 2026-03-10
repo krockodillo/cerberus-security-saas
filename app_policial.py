@@ -395,6 +395,7 @@ else:
 elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Forense")
         tab_ia, tab_ip, tab_d = st.tabs(["🤖 IA Forense", "📡 IP", "🔎 Dorks"])
+        
         with tab_ia:
             u_p = st.file_uploader("Print", type=['jpg','png'])
             if u_p and st.button("ANALISAR PERFIL"):
@@ -402,11 +403,13 @@ elif menu == "6. Cyber OSINT & Forense":
                     client = genai.Client(api_key=GEMINI_API_KEY)
                     r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise este perfil criminoso.", Image.open(u_p)])
                     st.write(r.text)
+                    
         with tab_ip:
             ip = st.text_input("IP")
             if st.button("RASTREAR") and ip:
                 res = requests.get(f"http://ip-api.com/json/{ip}?lang=pt-BR").json()
                 if res.get('status') == 'success': st.success(f"Cidade: {res['city']} | ISP: {res['isp']}")
+                
         with tab_d:
             n = st.text_input("Alvo")
             if st.button("BUSCAR") and n: st.markdown(f"[Pesquisar {n} no Google](https://www.google.com/search?q={n})")
@@ -456,7 +459,7 @@ elif menu == "6. Cyber OSINT & Forense":
                         if js and gerar_mapa_vinculos_json(json.loads(js.group(1))) and os.path.exists("grafo_inteligencia.html"):
                             with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=500)
                     except Exception as err: st.error(f"Erro: {err}")
-                    
+
 elif menu == "11. Geolocalização Forense":
         st.header("📍 Extração Automática de Metadados (EXIF)")
         st.markdown("Faça o upload da evidência. O sistema fará a varredura automática por coordenadas GPS ocultas no arquivo.")

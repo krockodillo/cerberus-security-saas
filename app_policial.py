@@ -392,27 +392,89 @@ else:
 
     elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Forense")
-        tab_ia, tab_ip, tab_d, tab_g = st.tabs(["🤖 IA Forense", "📡 IP", "🔎 Dorks", "📍 EXIF"])
+        tab_ia, tab_ip, tab_d, tab_g, tab_geo_ia = st.tabs(["🤖 IA Forense", "📡 IP", "🔎 Dorks", "📍 EXIF (Metadados)", "🌍 GeoINT Visual (IA)"])
+        
         with tab_ia:
-            u_p = st.file_uploader("Print", type=['jpg','png'])
+            u_p = st.file_uploader("Print de Perfil", type=['jpg','png'])
             if u_p and st.button("ANALISAR PERFIL"):
                 with st.spinner("Analisando..."):
                     client = genai.Client(api_key=GEMINI_API_KEY)
-                    r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise este perfil criminoso.", Image.open(u_p)])
-                    st.write(r.text)
+                    r = client.models.generate_content(model='gemini-2.5-flash', contents=["Aja como analista criminal. Extraia nome, símbolos, facções e perfil psicológico deste print.", Image.open(u_p)])
+                    st.info(r.text)
+                    
         with tab_ip:
-            ip = st.text_input("IP")
+            ip = st.text_input("Endereço IP Alvo")
             if st.button("RASTREAR") and ip:
-                res = requests.get(f"http://ip-api.com/json/{ip}?lang=pt-BR").json()
-                if res.get('status') == 'success': st.success(f"Cidade: {res['city']} | ISP: {res['isp']}")
+                try:
+                    res = requests.get(f"http://ip-api.com/json/{ip}?lang=pt-BR").json()
+                    if res.get('status') == 'success':
+                        st.success(f"📍 Rastreamento Concluído: {ip}")
+                        st.write(f"**País:** {res.get('country')} | **Cidade:** {res.get('city')} | **Provedor:** {res.get('isp')}")
+                        m_ip = folium.Map([res.get('lat'), res.get('lon')], zoom_start=12)
+                        folium.Marker([res.get('lat'), res.get('lon')], tooltip=f"ISP: {res.get('isp')}").add_to(m_ip)
+                        st_folium(m_ip, height=350, use_container_width=True)
+                    else: 
+                        st.error("IP Inválido.")
+                except: 
+                    st.error("Erro de conexão.")
+                    
         with tab_d:
-            n = st.text_input("Alvo")
-            if st.button("BUSCAR") and n: st.markdown(f"[Pesquisar {n} no Google](https://www.google.com/search?q={n})")
+            n = st.text_input("Nome/Vulgo do Alvo")
+            if st.button("GERAR LINKS DE BUSCA") and n:
+                termo = urllib.parse.quote(f'"{n}"')
+                st.markdown(f"👉 [Varredura Instagram](https://www.google.com/search?q=site:instagram.com+{termo})")
+                st.markdown(f"👉 [Varredura Facebook](https://www.google.com/search?q=site:facebook.com+{termo})")
+                st.markdown(f"👉 [Busca Jusbrasil (Antecedentes)](https://www.google.com/search?q=site:jusbrasil.com.br+{termo})")
+                
         with tab_g:
-            u_g = st.file_uploader("Foto Original", key="g")
+            st.subheader("Extração de Coordenadas Ocultas (EXIF)")
+            st.warning("⚠️ Depende do arquivo original (arquivos de WhatsApp não funcionam).")
+            u_g = st.file_uploader("Carregar Imagem Original", key="g")
             if u_g:
                 geo, msg = extrair_geolocalizacao(Image.open(u_g))
-                if geo: st.success(f"Lat: {geo[0]}, Lon: {geo[1]}")
+                if geo:
+                    st.success(f"📍 Alvo Localizado! Lat: {geo[0]}, Lon: {geo[1]}")
+                    m = folium.Map([geo[0], geo[1]], zoom_start=15)
+                    folium.Marker([geo[0], geo[1]], tooltip="Origem da Foto").add_to(m)
+                    st_folium(m, height=400, use_container_width=True)
+                else: 
+                    st.error(f"❌ Não foi possível extrair a localização. Motivo: {msg}")
+
+        with tab_geo_ia:
+            st.subheader("🌍 Inteligência Geográfica Visual (GEOINT)")
+            st.markdown("A IA analisará a arquitetura, vegetação, relevo, placas, clima e modelos de veículos na foto para deduzir de onde ela foi tirada (sem depender de dados de GPS).")
+            u_geo = st.file_uploader("Carregar Foto do Local/Cenário", type=['jpg','png','jpeg'], key="geo_ia")
+            
+            if u_geo:
+                img_geo = Image.open(u_geo)
+                st.image(img_geo, caption="Cenário a ser analisado", use_container_width=True)
+                
+                if st.button("INICIAR DEDUÇÃO GEOGRÁFICA", type="primary"):
+                    with st.spinner("Analisando padrões arquitetônicos e topográficos..."):
+                        try:
+                            client = genai.Client(api_key=GEMINI_API_KEY)
+                            prompt_geoint = """
+                            Aja como um detetive de elite especializado em OSINT (Open Source Intelligence) e GEOINT (Inteligência Geográfica).
+                            Analise rigorosamente esta imagem e faça a geolocalização dedutiva. Observe:
+                            1. Placas de rua, idiomas, logotipos de lojas.
+                            2. Arquitetura das casas, estilo dos telhados, formato de postes de luz e fiações.
+                            3. Modelos de veículos e padrões de placas de trânsito.
+                            4. Tipo de vegetação, cor da terra e clima.
+                            
+                            Responda nos seguintes tópicos:
+                            - **ESTIMATIVA DE LOCALIZAÇÃO:** (País, Região, Estado ou Cidade mais prováveis)
+                            - **PONTOS DE REFERÊNCIA:** (Destaque elementos específicos vistos na imagem que baseiam sua teoria)
+                            - **CONFIANÇA DA ANÁLISE:** (Alta, Média ou Baixa - justifique).
+                            
+                            Seja direto, técnico e aja como um investigador forense.
+                            """
+                            r = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt_geoint, img_geo])
+                            
+                            st.markdown("### 🗺️ Relatório de Geolocalização (IA)")
+                            st.info(r.text)
+                            
+                        except Exception as e:
+                            st.error(f"Erro na análise do cenário: {e}")
 
     elif menu == "7. Checklist Tático":
         st.header("📋 Checklist de Plantão")
@@ -459,3 +521,5 @@ else:
                         if js and gerar_mapa_vinculos_json(json.loads(js.group(1))) and os.path.exists("grafo_inteligencia.html"):
                             with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=500)
                     except Exception as err: st.error(f"Erro: {err}")
+
+                    

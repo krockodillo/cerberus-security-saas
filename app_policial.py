@@ -26,9 +26,14 @@ import re
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3.3", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3.5", layout="wide", page_icon="🛡️")
 
-GEMINI_API_KEY = "COLE_SUA_CHAVE_NOVA_AQUI" # MANTENHA A SUA CHAVE AQUI
+# PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
+# A chave NUNCA mais deve ser colada no código em texto limpo.
+try:
+    GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except Exception:
+    GEMINI_API_KEY = "" # Fica vazio se não encontrar no cofre, evitando erros fatais na interface
 
 try:
     import PyPDF2
@@ -38,7 +43,7 @@ except ImportError:
     LIBS_DOC = False
 
 # ==============================================================================
-# 🎨 PAINEL DE CONTROLE DE CORES E UI (CSS)
+# 🎨 PAINEL DE CONTROLO DE CORES E UI (CSS)
 # ==============================================================================
 st.markdown("""
     <style>
@@ -67,17 +72,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# ⚙️ BANCO DE DADOS E GESTÃO DE ACESSO
+# ⚙️ BASE DE DADOS E GESTÃO DE ACESSO
 # ==============================================================================
 TODOS_MODULOS = [
-    "1. Detecção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
+    "1. Deteção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
     "4. Mapa de Vínculos", "5. Investigação CPF", "6. Cyber OSINT & Forense",
     "7. Checklist Tático", "8. Gerador de Persona (Cover)",
     "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
 MODULOS_SILVER = [
-    "1. Detecção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
+    "1. Deteção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
     "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
@@ -103,7 +108,7 @@ def login_user(username, password):
         vencimento = datetime.strptime(user[4], '%Y-%m-%d')
         if datetime.now() > vencimento: return None, "🚫 Acesso Expirado."
         return user, "OK"
-    return None, "❌ Usuário ou senha inválidos."
+    return None, "❌ Utilizador ou senha inválidos."
 
 init_db()
 
@@ -138,7 +143,7 @@ def gerar_pdf_checklist(titulo, dados):
     return pdf.output(dest='S').encode('latin-1')
 
 # ==============================================================================
-# TELA DE LOGIN E NAVEGAÇÃO
+# ECRÃ DE LOGIN E NAVEGAÇÃO
 # ==============================================================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 
@@ -146,13 +151,13 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3.3</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3.5</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
             btn = st.form_submit_button("ENTRAR NO SISTEMA", use_container_width=True)
             if btn:
-                with st.spinner("Autenticando..."):
+                with st.spinner("A autenticar..."):
                     u_data, msg = login_user(user, pwd)
                     if u_data:
                         st.session_state['logged_in'] = True
@@ -177,29 +182,31 @@ else:
     menu_options = TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER
     menu = st.sidebar.radio("Módulos de Inteligência:", menu_options)
 
-    if menu == "1. Detecção de Armas":
+    if menu == "1. Deteção de Armas":
         st.header("🔫 Análise de Armamento e Tática Visual")
         u = st.file_uploader("Submeter Evidência (Imagem)", type=['jpg','png','jpeg'])
         if u and st.button("INICIAR VARREDURA"):
-            with st.spinner("Decodificando armamentos e perímetro..."):
-                try:
-                    genai.configure(api_key=GEMINI_API_KEY)
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                    prompt = "Aja como perito criminal. Conte os indivíduos e armas. Especifique os tipos de armas, calibre presumido e faça uma avaliação de risco tático do ambiente. Seja direto, técnico, estruturado em tópicos e não use emojis."
-                    res = model.generate_content([prompt, Image.open(u)])
-                    st.image(u, use_container_width=True)
-                    st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
-                except Exception as e: st.error(f"Falha na análise: {e}")
+            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre (Secrets) do Streamlit.")
+            else:
+                with st.spinner("A descodificar armamentos e perímetro..."):
+                    try:
+                        genai.configure(api_key=GEMINI_API_KEY)
+                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                        prompt = "Aja como perito criminal. Conte os indivíduos e armas. Especifique os tipos de armas, calibre presumido e faça uma avaliação de risco tático do ambiente. Seja direto, técnico, estruturado em tópicos e não use emojis."
+                        res = model.generate_content([prompt, Image.open(u)])
+                        st.image(u, use_container_width=True)
+                        st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
+                    except Exception as e: st.error(f"Falha na análise: {e}")
 
     elif menu == "2. Transcrição de Áudio":
-        st.header("🎙️ Decodificação de Áudio (Whisper)")
+        st.header("🎙️ Descodificação de Áudio (Whisper)")
         t1, t2 = st.tabs(["📁 Arquivo Físico", "🎤 Captura de Microfone"])
         audio_up = None
         with t1: audio_up = st.file_uploader("Submeter Áudio", type=['mp3','wav', 'm4a', 'ogg'])
         with t2: audio_input = st.audio_input("Grave a evidência")
         audio_core = audio_up if audio_up else audio_input
         if audio_core and st.button("PROCESSAR TRANSCRIÇÃO"):
-            with st.spinner("Extraindo texto..."):
+            with st.spinner("A extrair texto..."):
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
                     t.write(audio_core.getvalue()); p = t.name
                 try:
@@ -207,7 +214,7 @@ else:
                     os.remove(p)
                     txt = "".join([s['text'] + "\n" for s in res["segments"]])
                     st.markdown(f"<div class='cyber-box'>{txt}</div>", unsafe_allow_html=True)
-                except Exception as e: st.error(f"Falha na decodificação: {e}")
+                except Exception as e: st.error(f"Falha na descodificação: {e}")
 
     elif menu == "3. Visão Forense":
         st.header("👁️ Tratamento e Restauração Forense")
@@ -234,16 +241,19 @@ else:
     elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Triagem")
         cpf = st.text_input("CPF do Alvo (11 dígitos)")
-        if cpf and st.button("PUXAR REGISTROS"):
-            with st.spinner("Acessando bases..."):
-                genai.configure(api_key=GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                prompt = f"Gere um JSON simulando Dossiê para o CPF {cpf}: Nome, RG, Filiação, Endereços, Histórico. JSON PURO."
-                try:
-                    res = model.generate_content(prompt)
-                    dados = json.loads(res.text.strip().replace("```json\n", "").replace("\n```", "").replace("```",""))
-                    st.json(dados)
-                except Exception as e: st.error(f"Falha estrutural: {e}")
+        if cpf and st.button("PUXAR REGISTOS"):
+            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+            else:
+                with st.spinner("A aceder a bases..."):
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    prompt = f"Gere um JSON simulando Dossiê para o CPF {cpf}: Nome, RG, Filiação, Endereços, Histórico. JSON PURO."
+                    try:
+                        res = model.generate_content(prompt)
+                        json_str = res.text.strip().replace("`" * 3 + "json", "").replace("`" * 3, "").strip()
+                        dados = json.loads(json_str)
+                        st.json(dados)
+                    except Exception as e: st.error(f"Falha estrutural: {e}")
 
     elif menu == "6. Cyber OSINT & Forense":
         st.header("🌐 Cyber OSINT e Inteligência Cibernética")
@@ -251,15 +261,17 @@ else:
         with tab1:
             u_p = st.file_uploader("Evidência Digital", type=['jpg','png','jpeg'])
             if u_p and st.button("ANALISAR PERFIL"):
-                genai.configure(api_key=GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                res = model.generate_content(["Analise este perfil. Identifique logotipos, facções, nomes visíveis.", Image.open(u_p)])
-                st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
+                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                else:
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    res = model.generate_content(["Analise este perfil. Identifique logotipos, facções, nomes visíveis.", Image.open(u_p)])
+                    st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
         with tab2:
             ip_in = st.text_input("Endereço IP Alvo")
             if ip_in and st.button("RASTREAR ORIGEM"):
                 try:
-                    res = requests.get(f"[http://ip-api.com/json/](http://ip-api.com/json/){ip_in}").json()
+                    res = requests.get(f"http://ip-api.com/json/{ip_in}").json()
                     st.success(f"📍 {ip_in} | {res.get('isp')} | {res.get('city')}")
                 except: st.error("Falha na varredura.")
 
@@ -268,11 +280,11 @@ else:
         with st.form("form_bo"):
             loc = st.text_input("Localização do Fato")
             nar = st.text_area("Dinâmica dos Fatos")
-            if st.form_submit_button("GERAR BOLETIM"): st.success("Registrado.")
+            if st.form_submit_button("GERAR BOLETIM"): st.success("Registado.")
 
     elif menu == "8. Gerador de Persona (Cover)":
         st.header("🕵️ Gerador de Pessoas (Identidade Cover)")
-        st.markdown("⚠️ DIRETRIZ: Geração avançada via Motor de IA Neural. Formatação idêntica a bancos de dados nacionais.")
+        st.markdown("⚠️ DIRETRIZ: Geração avançada via Motor de IA Neural. Formatação idêntica a bases de dados nacionais.")
         
         with st.form("form_persona"):
             st.markdown("### ⚙️ Parâmetros de Geração")
@@ -283,38 +295,154 @@ else:
                 idade = st.slider("Idade do Alvo", 18, 80, 30)
             with c2:
                 uf = st.selectbox("Estado (UF)", ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"])
-                pontuacao = st.radio("Pontuação (Mascáras visuais)", ["Sim", "Não"], horizontal=True)
+                pontuacao = st.radio("Pontuação (Máscaras visuais)", ["Sim", "Não"], horizontal=True)
 
             if st.form_submit_button("GERAR PESSOA", type="primary"):
-                with st.spinner("Acionando Motor de Síntese de Identidade (Aguarde)..."):
-                    try:
-                        genai.configure(api_key=GEMINI_API_KEY)
-                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                        
-                        pont_inst = "USE máscara de pontuação (ex: 123.456.789-00, (11) 99999-9999)" if pontuacao == "Sim" else "NÃO use pontuação, apenas números contínuos (ex: 12345678900, 11999999999)"
-                        
-                        prompt = f"""
-                        Gere uma identidade sintética brasileira hiper-realista.
-                        Parâmetros Obrigatórios: Sexo {sx}, Idade Exata {idade} anos, Estado {uf}.
-                        Regra de formatação: {pont_inst} para CPF, RG, CEP e Telefones.
+                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                else:
+                    with st.spinner("A acionar Motor de Síntese de Identidade (Aguarde)..."):
+                        try:
+                            genai.configure(api_key=GEMINI_API_KEY)
+                            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                            
+                            pont_inst = "USE máscara de pontuação (ex: 123.456.789-00, (11) 99999-9999)" if pontuacao == "Sim" else "NÃO use pontuação, apenas números contínuos (ex: 12345678900, 11999999999)"
+                            
+                            prompt = f"""
+                            Gere uma identidade sintética brasileira hiper-realista.
+                            Parâmetros Obrigatórios: Sexo {sx}, Idade Exata {idade} anos, Estado {uf}.
+                            Regra de formatação: {pont_inst} para CPF, RG, CEP e Telefones.
+                            Atenção: A Cidade DEVE ser uma cidade real que pertence ao estado de {uf}.
+                            
+                            Retorne EXATAMENTE este JSON puro sem marcadores Markdown:
+                            {{
+                                "nome": "", "cpf": "", "rg": "", "data_nasc": "", "idade": "{idade}", "signo": "", "sexo": "{sx}",
+                                "mae": "", "pai": "",
+                                "cep": "", "endereco": "", "numero": "", "bairro": "", "cidade": "", "estado": "{uf}",
+                                "telefone_fixo": "", "celular": "",
+                                "altura": "", "peso": "", "tipo_sanguineo": "", "cor": "",
+                                "profissao": "", "renda": "", "email": "", "senha": "",
+                                "cartao_numero": "", "cartao_validade": "", "cartao_cvv": "", "cartao_bandeira": "",
+                                "veiculo_placa": "", "veiculo_renavam": "", "veiculo_chassi": "", "veiculo_marca_modelo": "", "veiculo_ano": ""
+                            }}
+                            """
+                            res = model.generate_content(prompt)
+                            json_str = res.text.strip().replace("`" * 3 + "json", "").replace("`" * 3, "").strip()
+                            
+                            p = json.loads(json_str)
+                            st.session_state['persona'] = p 
+                            
+                        except Exception as e:
+                            st.error(f"Falha de conexão com Motor IA. Erro: {e}")
 
-                        Atenção: A Cidade DEVE ser uma cidade real que pertence ao estado de {uf}.
-                        
-                        Retorne EXATAMENTE este JSON puro (sem markdown de formatação, apenas abra com {{ e feche com }}):
-                        {{
-                            "nome": "", "cpf": "", "rg": "", "data_nasc": "", "idade": "{idade}", "signo": "", "sexo": "{sx}",
-                            "mae": "", "pai": "",
-                            "cep": "", "endereco": "", "numero": "", "bairro": "", "cidade": "", "estado": "{uf}",
-                            "telefone_fixo": "", "celular": "",
-                            "altura": "", "peso": "", "tipo_sanguineo": "", "cor": "",
-                            "profissao": "", "renda": "", "email": "", "senha": "",
-                            "cartao_numero": "", "cartao_validade": "", "cartao_cvv": "", "cartao_bandeira": "",
-                            "veiculo_placa": "", "veiculo_renavam": "", "veiculo_chassi": "", "veiculo_marca_modelo": "", "veiculo_ano": ""
-                        }}
-                        """
-                        res = model.generate_content(prompt)
-                        json_str = res.text.strip()
-                        if json_str.startswith("
-http://googleusercontent.com/immersive_entry_chip/0
-http://googleusercontent.com/immersive_entry_chip/1
-http://googleusercontent.com/immersive_entry_chip/2
+        if 'persona' in st.session_state:
+            p = st.session_state['persona']
+            
+            st.success("✅ Identidade Cover sintetizada com sucesso.")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>👤 Dados Pessoais</h4>", unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            c1.text_input("Nome", p.get('nome',''))
+            c2.text_input("CPF", p.get('cpf',''))
+            c3.text_input("RG", p.get('rg',''))
+            
+            c4, c5, c6, c7 = st.columns(4)
+            c4.text_input("Data de Nascimento", p.get('data_nasc',''))
+            c5.text_input("Idade", str(p.get('idade','')))
+            c6.text_input("Signo", p.get('signo',''))
+            c7.text_input("Sexo", p.get('sexo',''))
+            
+            c8, c9 = st.columns(2)
+            c8.text_input("Mãe", p.get('mae',''))
+            c9.text_input("Pai", p.get('pai',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>📍 Endereço</h4>", unsafe_allow_html=True)
+            e1, e2, e3 = st.columns([1,2,1])
+            e1.text_input("CEP", p.get('cep',''))
+            e2.text_input("Endereço", p.get('endereco',''))
+            e3.text_input("Número", p.get('numero',''))
+            
+            e4, e5, e6 = st.columns(3)
+            e4.text_input("Bairro", p.get('bairro',''))
+            e5.text_input("Cidade", p.get('cidade',''))
+            e6.text_input("Estado", p.get('estado',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>📞 Contato e Características Físicas</h4>", unsafe_allow_html=True)
+            f1, f2, f3, f4 = st.columns(4)
+            f1.text_input("Altura", p.get('altura',''))
+            f2.text_input("Peso", p.get('peso',''))
+            f3.text_input("Tipo Sanguíneo", p.get('tipo_sanguineo',''))
+            f4.text_input("Cor", p.get('cor',''))
+            
+            t1, t2 = st.columns(2)
+            t1.text_input("Telefone Fixo", p.get('telefone_fixo',''))
+            t2.text_input("Telemóvel", p.get('celular',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>💻 Dados Profissionais e Digitais</h4>", unsafe_allow_html=True)
+            o1, o2, o3, o4 = st.columns(4)
+            o1.text_input("Profissão", p.get('profissao',''))
+            o2.text_input("Renda", p.get('renda',''))
+            o3.text_input("Email", p.get('email',''))
+            o4.text_input("Senha", p.get('senha',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>💳 Cartão de Crédito</h4>", unsafe_allow_html=True)
+            cc1, cc2, cc3, cc4 = st.columns(4)
+            cc1.text_input("Número do Cartão", p.get('cartao_numero',''))
+            cc2.text_input("Validade", p.get('cartao_validade',''))
+            cc3.text_input("CVV", p.get('cartao_cvv',''))
+            cc4.text_input("Bandeira", p.get('cartao_bandeira',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>🚗 Veículo Registado</h4>", unsafe_allow_html=True)
+            v1, v2, v3, v4, v5 = st.columns(5)
+            v1.text_input("Placa", p.get('veiculo_placa',''))
+            v2.text_input("Renavam", p.get('veiculo_renavam',''))
+            v3.text_input("Chassi", p.get('veiculo_chassi',''))
+            v4.text_input("Marca/Modelo", p.get('veiculo_marca_modelo',''))
+            v5.text_input("Ano", str(p.get('veiculo_ano','')))
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            pdf_bytes = gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p)
+            st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", pdf_bytes, file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
+
+    elif menu == "9. Gerador de Rosto (IA Avançada)":
+        st.header("👤 Síntese Facial Fotorrealista")
+        with st.form("form_rosto"):
+            gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
+            age = st.slider("Faixa Etária", 18, 70, 30)
+            etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
+            ratio = st.selectbox("Aspecto", ["1:1", "16:9"], index=0)
+            if st.form_submit_button("SINTETIZAR ROSTO"):
+                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                else:
+                    with st.spinner("A renderizar..."):
+                        try:
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+                            payload = {"instances": [{"prompt": f"Foto frontal realista, {gender}, {age} anos, etnia {etnia}, fundo neutro."}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}
+                            response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
+                            if response.status_code == 200:
+                                img_b64 = response.json()['predictions'][0]['bytesBase64Encoded']
+                                import base64
+                                st.image(Image.open(io.BytesIO(base64.b64decode(img_b64))), use_container_width=True)
+                            else: st.error("Erro da IA.")
+                        except Exception as e: st.error(f"Falha de Síntese: {e}")
+
+    elif menu == "10. Inteligência Documental":
+        st.header("📄 Triagem Documental")
+        u = st.file_uploader("Documento Escaneado (Imagem)", type=['png','jpg','jpeg'])
+        if u and st.button("EXTRAIR ESTRUTURAS"):
+            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+            else:
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                res = model.generate_content(["Extraia Nomes, CPFs, RGs, CNPJs, Placas.", Image.open(u)])
+                st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
+
+    elif menu == "11. Gestão de Operações":
+        st.header("📋 Comando e Controlo")
+        with st.form("form_op"):
+            op_nome = st.text_input("Operação / Missão")
+            if st.form_submit_button("GERAR ORDEM"): st.success("Ordem estruturada.")

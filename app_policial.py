@@ -22,17 +22,18 @@ import pandas as pd
 import urllib.parse
 import google.generativeai as genai
 import re
+import base64
 
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.2", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
 try:
     GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
 except Exception:
-    GEMINI_API_KEY = "" # Fica vazio se não encontrar no cofre
+    GEMINI_API_KEY = "" # A chave está no painel Secrets do Streamlit
 
 try:
     import PyPDF2
@@ -179,7 +180,7 @@ def gerar_pdf_checklist(titulo, dados):
     pdf.cell(0, 10, "DOCUMENTO OFICIAL PARA USO INTERNO / SIGILOSO", ln=True, align='C')
     return pdf.output(dest='S').encode('latin-1')
 
-# FUNÇÃO 100% OFFLINE E INSTANTÂNEA PARA GERAR PERSONAS (SEM DEPENDER DE IA)
+# FUNÇÃO 100% OFFLINE PARA GERAR PERSONAS (SEM DEPENDER DE IA)
 def gerar_persona_offline(sexo, idade, uf, pontuacao_str):
     pontuacao = pontuacao_str == "Sim"
     if sexo == "Aleatório": sexo = random.choice(["Masculino", "Feminino"])
@@ -242,7 +243,7 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.1</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.2</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -487,7 +488,6 @@ else:
 
             if st.form_submit_button("GERAR PESSOA", type="primary"):
                 with st.spinner("Sintetizando Dados Matematicamente..."):
-                    # Motor Offline Acionado (Zero Erros)
                     st.session_state['persona'] = gerar_persona_offline(sx, idade, uf, pontuacao)
 
         if 'persona' in st.session_state:
@@ -562,24 +562,70 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p), file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
 
+    # MÓDULO 9: INTEGRAÇÃO DA NOVA INTERFACE DE SÍNTESE FACIAL
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Síntese Facial Fotorrealista")
+        st.markdown("Criação de avatares táticos com controle preciso de vestimenta e ambiente.")
+
         with st.form("form_rosto"):
-            gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
-            age = st.slider("Faixa Etária", 18, 70, 30)
-            etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
-            ratio = st.selectbox("Aspecto", ["1:1", "16:9"], index=0)
-            if st.form_submit_button("SINTETIZAR ROSTO"):
-                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
-                else:
-                    with st.spinner("Renderizando..."):
-                        try:
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
-                            payload = {"instances": [{"prompt": f"Foto frontal realista, {gender}, {age} anos, etnia {etnia}, fundo neutro."}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}
-                            response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
-                            if response.status_code == 200:
-                                st.image(Image.open(io.BytesIO(base64.b64decode(response.json()['predictions'][0]['bytesBase64Encoded']))), use_container_width=True)
-                        except Exception as e: st.error("Falha de Síntese. (Verifique o limite de requisições)")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
+                age = st.slider("Idade Aproximada", 18, 70, 30)
+                etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
+
+            with col2:
+                tipo = st.selectbox("Tipo de Enquadramento", ["Somente rosto", "Meio corpo", "Corpo inteiro"])
+                roupa = st.selectbox("Tipo de Roupa", ["Casual", "Social", "Esportivo", "Tático militar", "Moletom com capuz escuro"])
+                local = st.selectbox("Ambiente", ["Fundo neutro liso", "Rua urbana movimentada", "Viela escura", "Escritório", "Fundo de fotografia policial"])
+
+            ratio = st.selectbox("Formato da Imagem", ["1:1", "4:3", "16:9"], index=0)
+
+            gerar = st.form_submit_button("SINTETIZAR AVATAR", type="primary")
+
+        if gerar:
+            if not GEMINI_API_KEY:
+                st.error("Erro: Chave API ausente no cofre (Secrets).")
+            else:
+                with st.spinner("Acionando rede neural de renderização (Imagen 3)..."):
+                    try:
+                        # Construção do Prompt avançado
+                        prompt = f"Fotografia hiper-realista. Gênero: {gender}, Idade: {age} anos, Fenótipo: {etnia}. Enquadramento: {tipo}. Vestimenta: {roupa}. Ambiente: {local}. Iluminação dramática e realista, alta definição 8k, textura de pele natural, estilo fotográfico profissional, sem distorções."
+
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+
+                        payload = {
+                            "instances": [{"prompt": prompt}],
+                            "parameters": {"sampleCount": 1, "aspectRatio": ratio}
+                        }
+
+                        response = requests.post(
+                            url,
+                            headers={"Content-Type": "application/json"},
+                            json=payload
+                        )
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            img_b64 = data["predictions"][0]["bytesBase64Encoded"]
+                            
+                            # Descodificação blindada da imagem
+                            img_bytes = base64.b64decode(img_b64)
+                            imagem = Image.open(io.BytesIO(img_bytes))
+
+                            st.success("✅ Avatar tático sintetizado com sucesso.")
+                            st.image(imagem, use_container_width=True)
+                            
+                            # Botão para o policial baixar a foto com qualidade máxima
+                            st.download_button("BAIXAR FOTOGRAFIA", img_bytes, file_name=f"Avatar_{int(time.time())}.jpg", mime="image/jpeg", type="secondary")
+
+                        else:
+                            st.error(f"Erro na API da Google: Código {response.status_code}")
+                            st.warning("Motivo provável: O sistema de segurança da Google bloqueou a geração. Tente mudar o tipo de roupa ou ambiente.")
+
+                    except Exception as e:
+                        st.error(f"Falha de comunicação com o servidor de síntese: {e}")
 
     elif menu == "10. Inteligência Documental":
         st.header("📄 Triagem Documental")

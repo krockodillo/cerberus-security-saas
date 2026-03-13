@@ -26,7 +26,7 @@ import re
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3.2", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐺 CERBERUS BETA v0.3.2", layout="wide", page_icon="🛡️")
 
 # Puxa a chave do cofre secreto do Streamlit (st.secrets) ou do ambiente (Github)
 try:
@@ -63,12 +63,12 @@ st.markdown("""
 
     /* 3. FUNDO DO MENU LATERAL (SIDEBAR) */
     [data-testid="stSidebar"] {
-        background-color: #111827 !important; /* <-- TROQUE AQUI O FUNDO DO MENU LATERAL */
+        background-color: #FFFFFF !important; /* <-- TROQUE AQUI O FUNDO DO MENU LATERAL */
     }
 
     /* 4. TEXTO DO MENU LATERAL */
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
-        color: #e2e8f0 !important; /* <-- TROQUE AQUI O TEXTO DO MENU LATERAL */
+        color: #000000 !important; /* <-- TROQUE AQUI O TEXTO DO MENU LATERAL */
     }
 
     /* 5. FUNDO DAS CAIXAS DE FORMULÁRIO (CARDS) */

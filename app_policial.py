@@ -562,150 +562,24 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p), file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
 
-elif menu == "9. Gerador de Rosto (IA Avançada)":
-    st.header("👤 Síntese Facial Fotorrealista")
-
-    with st.form("form_rosto"):
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            gender = st.selectbox(
-                "Gênero",
-                ["Masculino", "Feminino"]
-            )
-
-            age = st.slider(
-                "Idade Aproximada",
-                18,
-                70,
-                30
-            )
-
-            etnia = st.selectbox(
-                "Fenótipo Presumido",
-                ["Pardo/Latino", "Branco", "Negro", "Asiático"]
-            )
-
-        with col2:
-            tipo = st.selectbox(
-                "Tipo de imagem",
-                [
-                    "Somente rosto",
-                    "Meio corpo",
-                    "Corpo inteiro"
-                ]
-            )
-
-            roupa = st.selectbox(
-                "Tipo de roupa",
-                [
-                    "Casual",
-                    "Social",
-                    "Esportivo",
-                    "Tático"
-                ]
-            )
-
-            local = st.selectbox(
-                "Ambiente",
-                [
-                    "Fundo neutro",
-                    "Rua",
-                    "Ambiente urbano",
-                    "Escritório"
-                ]
-            )
-
-        ratio = st.selectbox(
-            "Formato da imagem",
-            ["1:1", "4:3", "16:9"],
-            index=0
-        )
-
-        gerar = st.form_submit_button("SINTETIZAR IMAGEM")
-
-    if gerar:
-
-        if not GEMINI_API_KEY:
-            st.error("Erro: Chave API ausente no cofre.")
-        else:
-
-            with st.spinner("Gerando imagem com IA..."):
-
-                try:
-
-                    prompt = f"""
-                    Fotografia hiper-realista.
-
-                    Pessoa {gender}
-                    Idade aproximada {age} anos
-                    Fenótipo {etnia}
-
-                    Enquadramento: {tipo}
-                    Roupa estilo {roupa}
-                    Ambiente: {local}
-
-                    Foto extremamente realista
-                    iluminação natural
-                    fotografia profissional
-                    """
-
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
-
-                    payload = {
-                        "instances": [
-                            {
-                                "prompt": prompt
-                            }
-                        ],
-                        "parameters": {
-                            "sampleCount": 1,
-                            "aspectRatio": ratio
-                        }
-                    }
-
-                    response = requests.post(
-                        url,
-                        headers={
-                            "Content-Type": "application/json"
-                        },
-                        json=payload
-                    )
-
-                    if response.status_code == 200:
-
-                        data = response.json()
-
-                        img_bytes = base64.b64decode(
-                            data["predictions"][0]["bytesBase64Encoded"]
-                        )
-
-                        imagem = Image.open(io.BytesIO(img_bytes))
-
-                        st.success("Imagem gerada com sucesso.")
-                        st.image(
-                            imagem,
-                            use_container_width=True
-                        )
-
-                    else:
-
-                        st.error(
-                            f"Erro na API: {response.status_code}"
-                        )
-
+    elif menu == "9. Gerador de Rosto (IA Avançada)":
+        st.header("👤 Síntese Facial Fotorrealista")
+        with st.form("form_rosto"):
+            gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
+            age = st.slider("Faixa Etária", 18, 70, 30)
+            etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
+            ratio = st.selectbox("Aspecto", ["1:1", "16:9"], index=0)
+            if st.form_submit_button("SINTETIZAR ROSTO"):
+                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
+                else:
+                    with st.spinner("Renderizando..."):
                         try:
-                            st.json(response.json())
-                        except:
-                            st.write(response.text)
-
-                except Exception as e:
-
-                    st.error("Falha na geração da imagem.")
-                    st.exception(e)
-
-
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+                            payload = {"instances": [{"prompt": f"Foto frontal realista, {gender}, {age} anos, etnia {etnia}, fundo neutro."}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}
+                            response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
+                            if response.status_code == 200:
+                                st.image(Image.open(io.BytesIO(base64.b64decode(response.json()['predictions'][0]['bytesBase64Encoded']))), use_container_width=True)
+                        except Exception as e: st.error("Falha de Síntese. (Verifique o limite de requisições)")
 
     elif menu == "10. Inteligência Documental":
         st.header("📄 Triagem Documental")

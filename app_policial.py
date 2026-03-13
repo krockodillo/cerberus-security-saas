@@ -562,34 +562,66 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p), file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
 
-   elif menu == "9. Gerador de Rosto (IA Avançada)":
+elif menu == "9. Gerador de Rosto (IA Avançada)":
     st.header("👤 Síntese Facial Fotorrealista")
 
     with st.form("form_rosto"):
+
         col1, col2 = st.columns(2)
 
         with col1:
-            gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
-            age = st.slider("Idade Aproximada", 18, 70, 30)
-            etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
+            gender = st.selectbox(
+                "Gênero",
+                ["Masculino", "Feminino"]
+            )
+
+            age = st.slider(
+                "Idade Aproximada",
+                18,
+                70,
+                30
+            )
+
+            etnia = st.selectbox(
+                "Fenótipo Presumido",
+                ["Pardo/Latino", "Branco", "Negro", "Asiático"]
+            )
 
         with col2:
             tipo = st.selectbox(
-                "Tipo de Imagem",
-                ["Somente rosto", "Meio corpo", "Corpo inteiro"]
+                "Tipo de imagem",
+                [
+                    "Somente rosto",
+                    "Meio corpo",
+                    "Corpo inteiro"
+                ]
             )
 
             roupa = st.selectbox(
-                "Tipo de Roupa",
-                ["Casual", "Social", "Esportivo", "Tático", "Aleatório"]
+                "Tipo de roupa",
+                [
+                    "Casual",
+                    "Social",
+                    "Esportivo",
+                    "Tático"
+                ]
             )
 
             local = st.selectbox(
                 "Ambiente",
-                ["Fundo neutro", "Rua", "Ambiente urbano", "Escritório", "Ambiente interno"]
+                [
+                    "Fundo neutro",
+                    "Rua",
+                    "Ambiente urbano",
+                    "Escritório"
+                ]
             )
 
-        ratio = st.selectbox("Formato da Imagem", ["1:1", "4:3", "16:9"], index=0)
+        ratio = st.selectbox(
+            "Formato da imagem",
+            ["1:1", "4:3", "16:9"],
+            index=0
+        )
 
         gerar = st.form_submit_button("SINTETIZAR IMAGEM")
 
@@ -599,23 +631,24 @@ else:
             st.error("Erro: Chave API ausente no cofre.")
         else:
 
-            with st.spinner("Renderizando imagem com IA..."):
+            with st.spinner("Gerando imagem com IA..."):
 
                 try:
 
                     prompt = f"""
-                    Fotografia hiper-realista de uma pessoa.
+                    Fotografia hiper-realista.
 
-                    Gênero: {gender}
-                    Idade aproximada: {age} anos
-                    Fenótipo: {etnia}
+                    Pessoa {gender}
+                    Idade aproximada {age} anos
+                    Fenótipo {etnia}
 
-                    Tipo de enquadramento: {tipo}
-                    Roupa: estilo {roupa}
+                    Enquadramento: {tipo}
+                    Roupa estilo {roupa}
                     Ambiente: {local}
 
-                    Fotografia realista, iluminação natural,
-                    alta definição, estilo fotográfico profissional.
+                    Foto extremamente realista
+                    iluminação natural
+                    fotografia profissional
                     """
 
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
@@ -634,7 +667,9 @@ else:
 
                     response = requests.post(
                         url,
-                        headers={"Content-Type": "application/json"},
+                        headers={
+                            "Content-Type": "application/json"
+                        },
                         json=payload
                     )
 
@@ -648,12 +683,17 @@ else:
 
                         imagem = Image.open(io.BytesIO(img_bytes))
 
-                        st.success("Imagem sintetizada com sucesso.")
-                        st.image(imagem, use_container_width=True)
+                        st.success("Imagem gerada com sucesso.")
+                        st.image(
+                            imagem,
+                            use_container_width=True
+                        )
 
                     else:
 
-                        st.error(f"Erro na API: {response.status_code}")
+                        st.error(
+                            f"Erro na API: {response.status_code}"
+                        )
 
                         try:
                             st.json(response.json())
@@ -664,6 +704,7 @@ else:
 
                     st.error("Falha na geração da imagem.")
                     st.exception(e)
+
 
 
     elif menu == "10. Inteligência Documental":

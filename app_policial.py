@@ -78,8 +78,11 @@ MODULOS_SILVER = [
     "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
+# Rota segura de gravação no servidor Linux
+DB_PATH = "/tmp/cerberus_users.db"
+
 def init_db():
-    conn = sqlite3.connect('cerberus_users.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, vencimento TEXT)''')
     c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
@@ -89,7 +92,7 @@ def init_db():
     conn.close()
 
 def login_user(username, password):
-    conn = sqlite3.connect('cerberus_users.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, password))
     user = c.fetchone()
@@ -125,7 +128,6 @@ def gerar_pdf_checklist(titulo, dados):
             pdf.write(7, f"{k.upper()}: ")
             pdf.set_font("Arial", '', 12)
             clean_v = str(v).replace('\n', ' ')
-            # Remove caracteres incompatíveis com o PDF padrão
             clean_v = clean_v.encode('latin-1', 'replace').decode('latin-1')
             pdf.multi_cell(0, 7, txt=clean_v)
             pdf.ln(2)
@@ -410,7 +412,6 @@ else:
             if st.form_submit_button("SINTETIZAR ROSTO", type="primary"):
                 with st.spinner("Renderizando biometria facial..."):
                     try:
-                        # Comunicação via REST API para evitar conflito de versão do SDK com o modelo Imagen-3
                         url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
                         headers = {'Content-Type': 'application/json'}
                         payload = {

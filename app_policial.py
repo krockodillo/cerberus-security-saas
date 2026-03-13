@@ -1,19 +1,3 @@
-Comandante, missão recebida. Entendido perfeitamente.
-
-Você quer o visual exato da ferramenta, com as opções em formato de botões horizontais (Radio), opções de pontuação (Sim/Não), e a entrega dos dados em caixas de texto separadas (grid) para o policial poder clicar, copiar e colar facilmente no relatório dele (exatamente como nas Imagens 1, 2, 3 e 4). E mais importante: gerando **absolutamente todos** os campos (Veículo, Cartão, Físico, etc).
-
-Eu reprogramei a IA para funcionar exatamente como o motor do 4devs, mas de forma blindada (ela não vai mais no site deles, a nossa própria IA gera os dados matematicamente perfeitos no formato JSON). E construí a interface idêntica ao que você pediu.
-
-Para não termos **nenhum risco de erro de margem ou espaço (indentação)**, aplique o protocolo de atualização integral.
-
-### 🚀 Código Master (BETA v0.3.3) - UI/UX 4Devs Tático
-
-1. Abra o `app_policial.py` no GitHub, clique no lápis ✏️.
-2. `Cmd + A` para selecionar tudo e apague.
-3. Cole o código abaixo inteiro.
-4. Salve (Commit).
-
-```python
 import streamlit as st
 import cv2
 import numpy as np
@@ -290,7 +274,6 @@ else:
         st.header("🕵️ Gerador de Pessoas (Identidade Cover)")
         st.markdown("⚠️ DIRETRIZ: Geração avançada via Motor de IA Neural. Formatação idêntica a bancos de dados nacionais.")
         
-        # UI/UX Baseado nas Imagens (Radio buttons horizontais, sliders, etc)
         with st.form("form_persona"):
             st.markdown("### ⚙️ Parâmetros de Geração")
             
@@ -299,7 +282,6 @@ else:
                 sx = st.radio("Sexo", ["Masculino", "Feminino", "Aleatório"], horizontal=True)
                 idade = st.slider("Idade do Alvo", 18, 80, 30)
             with c2:
-                # Selectbox com todos os Estados
                 uf = st.selectbox("Estado (UF)", ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"])
                 pontuacao = st.radio("Pontuação (Mascáras visuais)", ["Sim", "Não"], horizontal=True)
 
@@ -331,18 +313,8 @@ else:
                         }}
                         """
                         res = model.generate_content(prompt)
-                        # Limpeza tática do JSON
                         json_str = res.text.strip()
                         if json_str.startswith("
 http://googleusercontent.com/immersive_entry_chip/0
 http://googleusercontent.com/immersive_entry_chip/1
 http://googleusercontent.com/immersive_entry_chip/2
-
-**O que mudou na Interface do Gerador de Pessoas (Cover):**
-1. Adicionado botões de Seleção Horizontal para o Sexo e Pontuação, igual à sua imagem 4.
-2. Adicionado a grade completa de resposta da IA em caixas `text_input`. O policial só precisa clicar dentro de "Placa" ou "CPF", apertar `Ctrl + C` e `Ctrl + V` no sistema oficial. Limpo, rápido e sem precisar selecionar texto arrastando o mouse.
-3. Forçamos a IA a não errar de forma alguma a geração da cidade com o Estado (ex: se escolher RJ, a IA vai gerar "Nova Iguaçu" ou "Rio de Janeiro" etc).
-
-Faça essa inserção e me dê o sinal verde se a tela bateu com o que você visualizou!
-
-```

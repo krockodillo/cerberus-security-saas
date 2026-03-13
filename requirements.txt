@@ -14,4 +14,3 @@ pandas
 google-generativeai
 PyPDF2
 python-docx
-base64

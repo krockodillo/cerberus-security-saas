@@ -179,6 +179,60 @@ def gerar_pdf_checklist(titulo, dados):
     pdf.cell(0, 10, "DOCUMENTO OFICIAL PARA USO INTERNO / SIGILOSO", ln=True, align='C')
     return pdf.output(dest='S').encode('latin-1')
 
+# FUNÇÃO 100% OFFLINE E INSTANTÂNEA PARA GERAR PERSONAS (SEM DEPENDER DE IA)
+def gerar_persona_offline(sexo, idade, uf, pontuacao_str):
+    pontuacao = pontuacao_str == "Sim"
+    if sexo == "Aleatório": sexo = random.choice(["Masculino", "Feminino"])
+    
+    n_h = ["Miguel", "Arthur", "Gael", "Théo", "Heitor", "Ravi", "Davi", "Bernardo", "Noah", "Gabriel", "Samuel", "Pedro", "Anthony", "Isaac", "Benício", "Lucas", "Matheus"]
+    n_m = ["Helena", "Alice", "Laura", "Maria", "Sophia", "Manuela", "Maitê", "Isabella", "Heloísa", "Valentina", "Sarah", "Isadora", "Lívia", "Beatriz", "Ana", "Julia"]
+    sobrenomes = ["Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Lima", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida"]
+    
+    primeiro = random.choice(n_h) if sexo == "Masculino" else random.choice(n_m)
+    nome = f"{primeiro} {random.choice(sobrenomes)} {random.choice(sobrenomes)}"
+    mae = f"{random.choice(n_m)} {random.choice(sobrenomes)} {random.choice(sobrenomes)}"
+    pai = f"{random.choice(n_h)} {random.choice(sobrenomes)} {random.choice(sobrenomes)}"
+    
+    nasc = datetime.now() - timedelta(days=(idade * 365) + random.randint(1, 360))
+    
+    cpf_n = [random.randint(0, 9) for _ in range(9)]
+    for _ in range(2):
+        val = sum([(len(cpf_n) + 1 - i) * v for i, v in enumerate(cpf_n)]) % 11
+        cpf_n.append(11 - val if val > 1 else 0)
+    c_str = ''.join(map(str, cpf_n))
+    cpf_f = f"{c_str[:3]}.{c_str[3:6]}.{c_str[6:9]}-{c_str[9:]}" if pontuacao else c_str
+    
+    r_str = ''.join([str(random.randint(0,9)) for _ in range(9)])
+    rg_f = f"{r_str[:2]}.{r_str[2:5]}.{r_str[5:8]}-{r_str[8:]}" if pontuacao else r_str
+    
+    cidades = {"AC": ["Rio Branco"], "AL": ["Maceió"], "AP": ["Macapá"], "AM": ["Manaus"], "BA": ["Salvador", "Feira de Santana"], "CE": ["Fortaleza"], "DF": ["Brasília"], "ES": ["Vitória", "Vila Velha"], "GO": ["Goiânia"], "MA": ["São Luís"], "MT": ["Cuiabá"], "MS": ["Campo Grande"], "MG": ["Belo Horizonte", "Uberlândia", "Contagem"], "PA": ["Belém"], "PB": ["João Pessoa"], "PR": ["Curitiba", "Londrina"], "PE": ["Recife", "Olinda"], "PI": ["Teresina"], "RJ": ["Rio de Janeiro", "Niterói", "Nova Iguaçu", "São Gonçalo"], "RN": ["Natal"], "RS": ["Porto Alegre", "Caxias do Sul"], "RO": ["Porto Velho"], "RR": ["Boa Vista"], "SC": ["Florianópolis", "Joinville"], "SP": ["São Paulo", "Campinas", "Guarulhos", "Osasco"], "SE": ["Aracaju"], "TO": ["Palmas"]}
+    cidade = random.choice(cidades.get(uf, [uf]))
+    
+    cep_s = f"{random.randint(10, 99)}{random.randint(100,999)}{random.randint(100,999)}"
+    cep_f = f"{cep_s[:5]}-{cep_s[5:]}" if pontuacao else cep_s
+    
+    ddd = random.randint(11, 99)
+    cel_s = f"{ddd}9{random.randint(1000,9999)}{random.randint(1000,9999)}"
+    cel_f = f"({ddd}) 9{cel_s[3:7]}-{cel_s[7:]}" if pontuacao else cel_s
+    fixo_s = f"{ddd}3{random.randint(100,999)}{random.randint(1000,9999)}"
+    fixo_f = f"({ddd}) {fixo_s[2:6]}-{fixo_s[6:]}" if pontuacao else fixo_s
+    
+    return {
+        "nome": nome, "cpf": cpf_f, "rg": rg_f, "data_nasc": nasc.strftime("%d/%m/%Y"), "idade": str(idade),
+        "signo": random.choice(["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"]),
+        "sexo": sexo, "mae": mae, "pai": pai, "cep": cep_f, "endereco": f"{random.choice(['Rua', 'Avenida'])} {random.choice(sobrenomes)}",
+        "numero": str(random.randint(10, 999)), "bairro": "Centro", "cidade": cidade, "estado": uf,
+        "telefone_fixo": fixo_f, "celular": cel_f, "altura": f"1.{random.randint(55, 95)}", "peso": f"{random.randint(50, 110)} kg",
+        "tipo_sanguineo": random.choice(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]), "cor": random.choice(["Branca", "Parda", "Preta"]),
+        "profissao": random.choice(["Analista", "Vendedor", "Gerente", "Professor", "Autônomo"]), "renda": f"R$ {random.randint(2000, 15000)},00",
+        "email": f"{primeiro.lower()}.{sobrenomes[0].lower()}@email.com", "senha": f"{primeiro.lower()}@{random.randint(100,999)}",
+        "cartao_numero": f"{random.randint(4000, 5000)} {random.randint(1000, 9999)} {random.randint(1000, 9999)} {random.randint(1000, 9999)}",
+        "cartao_validade": f"0{random.randint(1,9)}/{random.randint(26, 32)}", "cartao_cvv": str(random.randint(100, 999)), "cartao_bandeira": random.choice(["Visa", "MasterCard"]),
+        "veiculo_placa": f"{random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}{random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}{random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}{random.randint(0,9)}{random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}{random.randint(10,99)}",
+        "veiculo_renavam": str(random.randint(10000000000, 99999999999)), "veiculo_chassi": f"9BW{random.randint(10000000000000, 99999999999999)}",
+        "veiculo_marca_modelo": random.choice(["VW Gol", "Fiat Uno", "Chevrolet Onix", "Toyota Corolla"]), "veiculo_ano": str(random.randint(2010, 2024))
+    }
+
 # ==============================================================================
 # TELA DE LOGIN E NAVEGAÇÃO
 # ==============================================================================
@@ -188,7 +242,7 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.1</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -217,87 +271,55 @@ else:
         st.session_state['logged_in'] = False
         st.rerun()
 
-    # Lógica de Permissão de Menus
     menu_options = TODOS_MODULOS.copy() if user_plan == 'GOLD' else MODULOS_SILVER.copy()
-    
-    # Se for Administrador (Comandante), ganha o menu VIP
-    if user_role == 'admin':
-        menu_options.append("⚙️ Gestão de Efetivo (Admin)")
+    if user_role == 'admin': menu_options.append("⚙️ Gestão de Efetivo (Admin)")
 
     menu = st.sidebar.radio("Módulos de Inteligência:", menu_options)
 
     # --------------------------------------------------------------------------
-    # MÓDULO EXCLUSIVO DE ADMINISTRAÇÃO (APENAS PARA O COMANDANTE)
+    # MÓDULOS DE ADMINISTRAÇÃO E INTELIGÊNCIA
     # --------------------------------------------------------------------------
     if menu == "⚙️ Gestão de Efetivo (Admin)":
         st.header("⚙️ Centro de Comando (Gestão de Agentes)")
-        st.markdown("⚠️ ÁREA RESTRITA: Controle absoluto sobre credenciais, planos e níveis de acesso.")
-        
         t_lista, t_novo, t_edita = st.tabs(["📋 Efetivo Ativo", "➕ Cadastrar Agente", "✏️ Editar/Remover Agente"])
-        
         with t_lista:
-            st.markdown("### Lista de Policiais com Acesso")
             usuarios = get_all_users()
-            if usuarios:
-                df = pd.DataFrame(usuarios, columns=["Credencial (Usuário)", "Cargo (Role)", "Plano", "Vencimento"])
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhum dado encontrado.")
-
+            if usuarios: st.dataframe(pd.DataFrame(usuarios, columns=["Credencial", "Cargo", "Plano", "Vencimento"]), use_container_width=True, hide_index=True)
         with t_novo:
             with st.form("form_novo_agente"):
-                st.markdown("### Autorizar Novo Acesso")
-                n_user = st.text_input("Credencial (Nome de Usuário)")
-                n_pwd = st.text_input("Chave (Senha de Acesso)", type="password")
-                
+                n_user = st.text_input("Credencial")
+                n_pwd = st.text_input("Chave", type="password")
                 c1, c2 = st.columns(2)
-                with c1: n_role = st.selectbox("Nível Hierárquico", ["user", "admin"])
-                with c2: n_plan = st.selectbox("Módulos Permitidos (Plano)", ["GOLD", "SILVER"])
-                
-                n_venc = st.date_input("Vencimento do Acesso", value=datetime.now() + timedelta(days=365))
-                
-                if st.form_submit_button("CADASTRAR AGENTE", type="primary"):
+                with c1: n_role = st.selectbox("Nível", ["user", "admin"])
+                with c2: n_plan = st.selectbox("Plano", ["GOLD", "SILVER"])
+                n_venc = st.date_input("Vencimento", value=datetime.now() + timedelta(days=365))
+                if st.form_submit_button("CADASTRAR", type="primary"):
                     if n_user and n_pwd:
-                        sucesso, msg = create_user(n_user, n_pwd, n_role, n_plan, n_venc.strftime('%Y-%m-%d'))
-                        if sucesso: st.success(msg)
+                        suc, msg = create_user(n_user, n_pwd, n_role, n_plan, n_venc.strftime('%Y-%m-%d'))
+                        if suc: st.success(msg)
                         else: st.error(msg)
-                    else: st.warning("Por favor, preencha o Usuário e a Senha.")
-
         with t_edita:
             usuarios_lista = [u[0] for u in get_all_users()]
             if usuarios_lista:
-                alvo = st.selectbox("Selecione o Agente para Modificar", usuarios_lista)
-                
+                alvo = st.selectbox("Agente Alvo", usuarios_lista)
                 with st.form("form_edita_agente"):
-                    st.markdown(f"**Modificando credencial:** `{alvo}`")
-                    e_pwd = st.text_input("Nova Chave/Senha (Deixe em branco para manter a atual)", type="password")
-                    
+                    e_pwd = st.text_input("Nova Chave (Branco para manter)", type="password")
                     c3, c4 = st.columns(2)
-                    with c3: e_role = st.selectbox("Novo Nível Hierárquico", ["user", "admin"])
+                    with c3: e_role = st.selectbox("Novo Nível", ["user", "admin"])
                     with c4: e_plan = st.selectbox("Novo Plano", ["GOLD", "SILVER"])
-                    
                     e_venc = st.date_input("Novo Vencimento", value=datetime.now() + timedelta(days=365))
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        btn_att = st.form_submit_button("ATUALIZAR DADOS", type="primary")
-                    with col_btn2:
-                        btn_del = st.form_submit_button("🚨 REVOGAR ACESSO (EXCLUIR)")
-                        
+                    b1, b2 = st.columns(2)
+                    with b1: btn_att = st.form_submit_button("ATUALIZAR", type="primary")
+                    with b2: btn_del = st.form_submit_button("REVOGAR")
                     if btn_att:
                         suc, msg = update_user_db(alvo, e_pwd, e_role, e_plan, e_venc.strftime('%Y-%m-%d'))
                         if suc: st.success(msg)
-                        
                     if btn_del:
-                        if alvo == 'leandro':
-                            st.error("Ação Bloqueada: Não é possível excluir a conta do Comandante Supremo.")
+                        if alvo == 'leandro': st.error("Ação Bloqueada para o Comandante.")
                         else:
                             suc, msg = delete_user_db(alvo)
                             if suc: st.success(msg)
 
-    # --------------------------------------------------------------------------
-    # MÓDULOS DE INTELIGÊNCIA OPERACIONAL
-    # --------------------------------------------------------------------------
     elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise de Armamento e Tática Visual")
         u = st.file_uploader("Submeter Evidência (Imagem)", type=['jpg','png','jpeg'])
@@ -308,8 +330,7 @@ else:
                     try:
                         genai.configure(api_key=GEMINI_API_KEY)
                         model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                        prompt = "Aja como perito criminal. Conte os indivíduos e armas. Especifique os tipos de armas, calibre presumido e faça uma avaliação de risco tático do ambiente. Seja direto, técnico, estruturado em tópicos e não use emojis."
-                        res = model.generate_content([prompt, Image.open(u)])
+                        res = model.generate_content(["Aja como perito criminal. Conte indivíduos e armas. Faça avaliação de risco tático. Seja direto e estruturado.", Image.open(u)])
                         st.image(u, use_container_width=True)
                         st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
                     except Exception as e: st.error(f"Falha na análise: {e}")
@@ -363,12 +384,10 @@ else:
                 with st.spinner("Acessando bases..."):
                     genai.configure(api_key=GEMINI_API_KEY)
                     model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                    prompt = f"Gere um JSON simulando Dossiê para o CPF {cpf}: Nome, RG, Filiação, Endereços, Histórico. JSON PURO."
                     try:
-                        res = model.generate_content(prompt)
+                        res = model.generate_content(f"Gere um JSON simulando Dossiê para o CPF {cpf}: Nome, RG, Filiação, Endereços, Histórico. JSON PURO.")
                         json_str = res.text.strip().replace("`" * 3 + "json", "").replace("`" * 3, "").strip()
-                        dados = json.loads(json_str)
-                        st.json(dados)
+                        st.json(json.loads(json_str))
                     except Exception as e: st.error(f"Falha estrutural: {e}")
 
     elif menu == "6. Cyber OSINT & Forense":
@@ -380,27 +399,84 @@ else:
                 if not GEMINI_API_KEY: st.error("Erro: Chave API ausente.")
                 else:
                     genai.configure(api_key=GEMINI_API_KEY)
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                    res = model.generate_content(["Analise este perfil. Identifique logotipos, facções, nomes visíveis.", Image.open(u_p)])
+                    res = genai.GenerativeModel('gemini-1.5-flash-latest').generate_content(["Analise este perfil. Identifique logotipos, facções, nomes visíveis.", Image.open(u_p)])
                     st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
         with tab2:
             ip_in = st.text_input("Endereço IP Alvo")
             if ip_in and st.button("RASTREAR ORIGEM"):
-                try:
-                    res = requests.get(f"http://ip-api.com/json/{ip_in}").json()
-                    st.success(f"📍 {ip_in} | {res.get('isp')} | {res.get('city')}")
+                try: st.success(f"📍 {ip_in} | {requests.get(f'http://ip-api.com/json/{ip_in}').json().get('isp')} | Cidade")
                 except: st.error("Falha na varredura.")
 
     elif menu == "7. Checklist Tático":
-        st.header("📋 Formulários e Procedimentos")
-        with st.form("form_bo"):
-            loc = st.text_input("Localização do Fato")
-            nar = st.text_area("Dinâmica dos Fatos")
-            if st.form_submit_button("GERAR BOLETIM"): st.success("Registrado.")
+        st.header("📋 Formulários e Procedimentos Operacionais")
+        st.markdown("Protocolos padronizados para registro, atendimento e preservação da cadeia de custódia.")
+        
+        t1, t2, t3, t4 = st.tabs(["📄 Atendimento (BO / RO)", "📄 Condução/Flagrante", "📄 Registro PM (RO)", "📄 Local de Crime"])
+        
+        with t1:
+            with st.form("form_bo"):
+                st.markdown("**Abertura de Ocorrência (BO/RO)**")
+                dt = st.date_input("Data do Fato", key="dt_bo")
+                loc = st.text_input("Localização do Fato", key="loc_bo")
+                env = st.text_area("Envolvidos (Vítima, Autor, Testemunhas com CPF/RG)")
+                nar = st.text_area("Dinâmica dos Fatos (Relato Histórico)")
+                chk = st.multiselect("Diligências Iniciais Realizadas:", ["Local Isolado", "Câmeras Verificadas", "Testemunhas Qualificadas", "Perícia Acionada", "Prisão Realizada"])
+                if st.form_submit_button("GERAR DOCUMENTO (BO)", type="primary"):
+                    dados = {"Documento": "BOLETIM DE OCORRENCIA", "Data": dt.strftime('%d/%m/%Y'), "Local": loc, "Envolvidos": env, "Dinâmica": nar, "Diligências": ", ".join(chk)}
+                    st.download_button("Baixar BO (PDF)", gerar_pdf_checklist("BOLETIM DE OCORRENCIA", dados), file_name="BO_Gerado.pdf", mime="application/pdf")
+
+        with t2:
+            with st.form("form_flagrante"):
+                st.markdown("**Lavratura de Flagrante Delito (PC/PF)**")
+                dt_f = st.date_input("Data da Condução", key="dt_fl")
+                nat = st.text_input("Natureza / Tipificação Penal (Artigo)")
+                conduzido = st.text_area("Dados do Conduzido (Nome Completo, RG, CPF, Filiação)")
+                relato_pm = st.text_area("Relato do Condutor (Agente que realizou a prisão)")
+                st.markdown("**Checklist de Direitos e Custódia**")
+                c1, c2 = st.columns(2)
+                with c1: 
+                    ch1 = st.checkbox("Nota de Culpa Emitida e Assinada?")
+                    ch2 = st.checkbox("Comunicação à Família / Advogado Realizada?")
+                with c2:
+                    ch3 = st.checkbox("Exame de Corpo de Delito (IML) Requisitado/Realizado?")
+                    ch4 = st.checkbox("Material/Armas Apreendidas Relacionadas?")
+                if st.form_submit_button("GERAR DOCUMENTO (FLAGRANTE)", type="primary"):
+                    dados = {"Documento": "AUTO DE PRISAO EM FLAGRANTE", "Data": dt_f.strftime('%d/%m/%Y'), "Tipificacao": nat, "Conduzido": conduzido, "Relato Condutor": relato_pm, "Nota Culpa": str(ch1), "Aviso Familia": str(ch2), "IML": str(ch3), "Material Apreendido": str(ch4)}
+                    st.download_button("Baixar Flagrante (PDF)", gerar_pdf_checklist("AUTO DE FLAGRANTE", dados), file_name="Flagrante.pdf", mime="application/pdf")
+
+        with t3:
+            with st.form("form_ro"):
+                st.markdown("**Registro de Ocorrência (Policiamento Ostensivo)**")
+                num_ro = st.text_input("Número do RO / BOPM")
+                vtr = st.text_input("Prefixo VTR")
+                efetivo = st.text_input("Composição da GU (Ex: CB Silva, SD Oliveira)")
+                historico = st.text_area("Histórico Detalhado da Ocorrência")
+                conclusao = st.text_area("Conclusão / Encaminhamento (Ex: Encaminhado à 1ª DP)")
+                if st.form_submit_button("GERAR DOCUMENTO (RO)", type="primary"):
+                    dados = {"Documento": "REGISTRO DE OCORRENCIA", "Numero": num_ro, "Viatura": vtr, "Efetivo": efetivo, "Historico": historico, "Conclusao": conclusao}
+                    st.download_button("Baixar RO (PDF)", gerar_pdf_checklist("REGISTRO DE OCORRENCIA", dados), file_name="RO.pdf", mime="application/pdf")
+
+        with t4:
+            with st.form("form_local"):
+                st.markdown("**Atendimento de Local de Homicídio/Crime Grave**")
+                dt_l = st.date_input("Data do Acionamento", key="dt_lc")
+                ender = st.text_input("Endereço Exato do Local de Crime")
+                st.markdown("**Ações de Preservação**")
+                ch_l1 = st.checkbox("Local Isola e Preservado adequadamente?")
+                ch_l2 = st.checkbox("Perícia Técnica Acionada via Centro de Comando?")
+                ch_l3 = st.checkbox("Corpo de Bombeiros / SAMU compareceu ao local?")
+                ch_l4 = st.checkbox("Armas/Estojos/Projéteis Arrecadados e Acautelados?")
+                ch_l5 = st.checkbox("Fotografias Iniciais Tiradas pela Primeira GU?")
+                if st.form_submit_button("GERAR DOCUMENTO (LOCAL DE CRIME)", type="primary"):
+                    dados = {"Documento": "RELATORIO DE LOCAL DE CRIME", "Data": dt_l.strftime('%d/%m/%Y'), "Endereco": ender, "Local Isolado": str(ch_l1), "Pericia Acionada": str(ch_l2), "Bombeiros": str(ch_l3), "Vestigios Arrecadados": str(ch_l4), "Fotografias": str(ch_l5)}
+                    st.download_button("Baixar Relatório (PDF)", gerar_pdf_checklist("LOCAL DE CRIME", dados), file_name="LocalCrime.pdf", mime="application/pdf")
 
     elif menu == "8. Gerador de Persona (Cover)":
         st.header("🕵️ Gerador de Pessoas (Identidade Cover)")
+        st.markdown("⚠️ DIRETRIZ: Geração avançada **100% OFFLINE**. O sistema não depende mais da IA ou de APIs externas para sintetizar identidades. É impossível falhar.")
+        
         with st.form("form_persona"):
+            st.markdown("### ⚙️ Parâmetros de Geração")
             c1, c2 = st.columns(2)
             with c1:
                 sx = st.radio("Sexo", ["Masculino", "Feminino", "Aleatório"], horizontal=True)
@@ -410,36 +486,81 @@ else:
                 pontuacao = st.radio("Pontuação", ["Sim", "Não"], horizontal=True)
 
             if st.form_submit_button("GERAR PESSOA", type="primary"):
-                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
-                else:
-                    with st.spinner("Acionando Motor de Síntese..."):
-                        try:
-                            genai.configure(api_key=GEMINI_API_KEY)
-                            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                            pont_inst = "USE máscara de pontuação" if pontuacao == "Sim" else "NÃO use pontuação"
-                            prompt = f"""
-                            Gere uma identidade sintética brasileira. Sexo {sx}, Idade {idade}, Estado {uf}. {pont_inst}.
-                            Retorne EXATAMENTE este JSON puro sem marcadores Markdown:
-                            {{
-                                "nome": "", "cpf": "", "rg": "", "data_nasc": "", "idade": "{idade}", "signo": "", "sexo": "{sx}",
-                                "mae": "", "pai": "", "cep": "", "endereco": "", "numero": "", "bairro": "", "cidade": "", "estado": "{uf}",
-                                "telefone_fixo": "", "celular": "", "altura": "", "peso": "", "tipo_sanguineo": "", "cor": "",
-                                "profissao": "", "renda": "", "email": "", "senha": "", "cartao_numero": "", "cartao_validade": "", "cartao_cvv": "", "cartao_bandeira": "",
-                                "veiculo_placa": "", "veiculo_renavam": "", "veiculo_chassi": "", "veiculo_marca_modelo": "", "veiculo_ano": ""
-                            }}
-                            """
-                            res = model.generate_content(prompt)
-                            json_str = res.text.strip().replace("`" * 3 + "json", "").replace("`" * 3, "").strip()
-                            st.session_state['persona'] = json.loads(json_str) 
-                        except Exception as e: st.error(f"Falha de conexão com Motor IA. Erro: {e}")
+                with st.spinner("Sintetizando Dados Matematicamente..."):
+                    # Motor Offline Acionado (Zero Erros)
+                    st.session_state['persona'] = gerar_persona_offline(sx, idade, uf, pontuacao)
 
         if 'persona' in st.session_state:
             p = st.session_state['persona']
-            st.success("✅ Identidade Cover sintetizada.")
+            st.success("✅ Identidade Cover sintetizada com precisão algorítmica.")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>👤 Dados Pessoais</h4>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            c1.text_input("Nome", p.get('nome','')); c2.text_input("CPF", p.get('cpf','')); c3.text_input("RG", p.get('rg',''))
+            c1.text_input("Nome", p.get('nome',''))
+            c2.text_input("CPF", p.get('cpf',''))
+            c3.text_input("RG", p.get('rg',''))
+            
+            c4, c5, c6, c7 = st.columns(4)
+            c4.text_input("Data de Nascimento", p.get('data_nasc',''))
+            c5.text_input("Idade", str(p.get('idade','')))
+            c6.text_input("Signo", p.get('signo',''))
+            c7.text_input("Sexo", p.get('sexo',''))
+            
+            c8, c9 = st.columns(2)
+            c8.text_input("Mãe", p.get('mae',''))
+            c9.text_input("Pai", p.get('pai',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>📍 Endereço</h4>", unsafe_allow_html=True)
+            e1, e2, e3 = st.columns([1,2,1])
+            e1.text_input("CEP", p.get('cep',''))
+            e2.text_input("Endereço", p.get('endereco',''))
+            e3.text_input("Número", p.get('numero',''))
+            
+            e4, e5, e6 = st.columns(3)
+            e4.text_input("Bairro", p.get('bairro',''))
+            e5.text_input("Cidade", p.get('cidade',''))
+            e6.text_input("Estado", p.get('estado',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>📞 Contato e Características Físicas</h4>", unsafe_allow_html=True)
+            f1, f2, f3, f4 = st.columns(4)
+            f1.text_input("Altura", p.get('altura',''))
+            f2.text_input("Peso", p.get('peso',''))
+            f3.text_input("Tipo Sanguíneo", p.get('tipo_sanguineo',''))
+            f4.text_input("Cor", p.get('cor',''))
+            
+            t1, t2 = st.columns(2)
+            t1.text_input("Telefone Fixo", p.get('telefone_fixo',''))
+            t2.text_input("Telemóvel", p.get('celular',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>💻 Dados Profissionais e Digitais</h4>", unsafe_allow_html=True)
+            o1, o2, o3, o4 = st.columns(4)
+            o1.text_input("Profissão", p.get('profissao',''))
+            o2.text_input("Renda", p.get('renda',''))
+            o3.text_input("Email", p.get('email',''))
+            o4.text_input("Senha", p.get('senha',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>💳 Cartão de Crédito</h4>", unsafe_allow_html=True)
+            cc1, cc2, cc3, cc4 = st.columns(4)
+            cc1.text_input("Número do Cartão", p.get('cartao_numero',''))
+            cc2.text_input("Validade", p.get('cartao_validade',''))
+            cc3.text_input("CVV", p.get('cartao_cvv',''))
+            cc4.text_input("Bandeira", p.get('cartao_bandeira',''))
+            st.markdown("---")
+            
+            st.markdown("<h4 style='color: #38bdf8;'>🚗 Veículo Registado</h4>", unsafe_allow_html=True)
+            v1, v2, v3, v4, v5 = st.columns(5)
+            v1.text_input("Placa", p.get('veiculo_placa',''))
+            v2.text_input("Renavam", p.get('veiculo_renavam',''))
+            v3.text_input("Chassi", p.get('veiculo_chassi',''))
+            v4.text_input("Marca/Modelo", p.get('veiculo_marca_modelo',''))
+            v5.text_input("Ano", str(p.get('veiculo_ano','')))
+            
             st.markdown("<br>", unsafe_allow_html=True)
-            st.download_button("BAIXAR DOSSIÊ (PDF)", gerar_pdf_checklist("COVER", p), file_name=f"Cover_{p.get('nome')}.pdf", mime="application/pdf")
+            st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p), file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Síntese Facial Fotorrealista")
@@ -471,7 +592,28 @@ else:
                 st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
 
     elif menu == "11. Gestão de Operações":
-        st.header("📋 Comando e Controle")
+        st.header("📋 Comando e Controle (Ordem de Operações)")
+        st.markdown("Criação de Relatórios de Missão, Mandados de Busca e Planejamento de Desdobramento Tático.")
         with st.form("form_op"):
-            op_nome = st.text_input("Operação / Missão")
-            if st.form_submit_button("GERAR ORDEM"): st.success("Ordem estruturada.")
+            st.markdown("**Formulário de Relatório Operacional Tático**")
+            op_nome = st.text_input("Nome da Operação / Missão (Ex: Operação Cérbero)")
+            op_data = st.date_input("Data Prevista de Deflagração")
+            op_comandante = st.text_input("Autoridade Coordenadora / Delegado Responsável")
+            op_alvos = st.text_area("Alvos Prioritários (Nomes, Vulgos e Vínculos)", height=100)
+            op_end = st.text_area("Endereços Alvo para Cumprimento de Mandados (Busca/Prisão)", height=100)
+            op_resumo = st.text_area("Resumo da Dinâmica Prevista e Ações Táticas", height=150)
+            
+            st.markdown("**Alocação de Recursos Empregados**")
+            c1, c2 = st.columns(2)
+            with c1: op_vtr = st.number_input("Qtd. de Viaturas Alocadas", min_value=1)
+            with c2: op_efetivo = st.number_input("Qtd. de Efetivo Desdobrado", min_value=1)
+            
+            if st.form_submit_button("GERAR ORDEM DE OPERAÇÃO", type="primary"):
+                dados_op = {
+                    "Operacao": op_nome, "Data_Deflagracao": op_data.strftime('%d/%m/%Y'),
+                    "Comandante": op_comandante, "Alvos": op_alvos, "Enderecos": op_end,
+                    "Dinamica": op_resumo, "Viaturas": str(op_vtr), "Efetivo": str(op_efetivo)
+                }
+                pdf_bytes = gerar_pdf_checklist("ORDEM DE OPERACAO POLICIAL", dados_op)
+                st.success("Ordem estruturada com sucesso e pronta para protocolo.")
+                st.download_button("BAIXAR PLANO DE OPERAÇÃO (PDF)", pdf_bytes, file_name=f"Operacao_{op_nome.replace(' ', '_')}.pdf", mime="application/pdf")

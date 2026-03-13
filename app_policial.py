@@ -26,14 +26,13 @@ import re
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3.5", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
-# A chave NUNCA mais deve ser colada no código em texto limpo.
 try:
     GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
 except Exception:
-    GEMINI_API_KEY = "" # Fica vazio se não encontrar no cofre, evitando erros fatais na interface
+    GEMINI_API_KEY = "" # Fica vazio se não encontrar no cofre
 
 try:
     import PyPDF2
@@ -43,7 +42,7 @@ except ImportError:
     LIBS_DOC = False
 
 # ==============================================================================
-# 🎨 PAINEL DE CONTROLO DE CORES E UI (CSS)
+# 🎨 PAINEL DE CONTROLE DE CORES E UI (CSS)
 # ==============================================================================
 st.markdown("""
     <style>
@@ -66,23 +65,22 @@ st.markdown("""
     .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
     .plan-gold { background-color: #eab308; color: black; }
     .plan-silver { background-color: #94a3b8; color: black; }
-    /* Ajuste para alinhar os rótulos de rádio na horizontal */
     div.row-widget.stRadio > div {flex-direction: row;}
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# ⚙️ BASE DE DADOS E GESTÃO DE ACESSO
+# ⚙️ BANCO DE DADOS E GESTÃO DE ACESSO
 # ==============================================================================
 TODOS_MODULOS = [
-    "1. Deteção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
+    "1. Detecção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
     "4. Mapa de Vínculos", "5. Investigação CPF", "6. Cyber OSINT & Forense",
     "7. Checklist Tático", "8. Gerador de Persona (Cover)",
     "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
 MODULOS_SILVER = [
-    "1. Deteção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
+    "1. Detecção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
     "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
@@ -108,7 +106,46 @@ def login_user(username, password):
         vencimento = datetime.strptime(user[4], '%Y-%m-%d')
         if datetime.now() > vencimento: return None, "🚫 Acesso Expirado."
         return user, "OK"
-    return None, "❌ Utilizador ou senha inválidos."
+    return None, "❌ Usuário ou senha inválidos."
+
+# --- FUNÇÕES DO PAINEL ADMIN ---
+def get_all_users():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT username, role, plan, vencimento FROM usuarios')
+    users = c.fetchall()
+    conn.close()
+    return users
+
+def create_user(username, password, role, plan, vencimento):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', (username, password, role, plan, vencimento))
+        conn.commit()
+        conn.close()
+        return True, "✅ Agente cadastrado com sucesso!"
+    except sqlite3.IntegrityError:
+        return False, "❌ Erro: Este nome de usuário já existe."
+
+def update_user_db(username, password, role, plan, vencimento):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    if password: 
+        c.execute('UPDATE usuarios SET password=?, role=?, plan=?, vencimento=? WHERE username=?', (password, role, plan, vencimento, username))
+    else:
+        c.execute('UPDATE usuarios SET role=?, plan=?, vencimento=? WHERE username=?', (role, plan, vencimento, username))
+    conn.commit()
+    conn.close()
+    return True, "✅ Dados do agente atualizados!"
+
+def delete_user_db(username):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('DELETE FROM usuarios WHERE username=?', (username,))
+    conn.commit()
+    conn.close()
+    return True, "🚨 Acesso do agente revogado (Excluído)."
 
 init_db()
 
@@ -143,7 +180,7 @@ def gerar_pdf_checklist(titulo, dados):
     return pdf.output(dest='S').encode('latin-1')
 
 # ==============================================================================
-# ECRÃ DE LOGIN E NAVEGAÇÃO
+# TELA DE LOGIN E NAVEGAÇÃO
 # ==============================================================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 
@@ -151,13 +188,13 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3.5</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
             btn = st.form_submit_button("ENTRAR NO SISTEMA", use_container_width=True)
             if btn:
-                with st.spinner("A autenticar..."):
+                with st.spinner("Autenticando conexão segura..."):
                     u_data, msg = login_user(user, pwd)
                     if u_data:
                         st.session_state['logged_in'] = True
@@ -175,20 +212,99 @@ else:
     if user_plan == 'GOLD': st.sidebar.markdown("<span class='status-badge plan-gold'>PLANO GOLD</span>", unsafe_allow_html=True)
     elif user_plan == 'SILVER': st.sidebar.markdown("<span class='status-badge plan-silver'>PLANO SILVER</span>", unsafe_allow_html=True)
     st.sidebar.markdown("---")
+    
     if st.sidebar.button("ENCERRAR SESSÃO"):
         st.session_state['logged_in'] = False
         st.rerun()
 
-    menu_options = TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER
+    # Lógica de Permissão de Menus
+    menu_options = TODOS_MODULOS.copy() if user_plan == 'GOLD' else MODULOS_SILVER.copy()
+    
+    # Se for Administrador (Comandante), ganha o menu VIP
+    if user_role == 'admin':
+        menu_options.append("⚙️ Gestão de Efetivo (Admin)")
+
     menu = st.sidebar.radio("Módulos de Inteligência:", menu_options)
 
-    if menu == "1. Deteção de Armas":
+    # --------------------------------------------------------------------------
+    # MÓDULO EXCLUSIVO DE ADMINISTRAÇÃO (APENAS PARA O COMANDANTE)
+    # --------------------------------------------------------------------------
+    if menu == "⚙️ Gestão de Efetivo (Admin)":
+        st.header("⚙️ Centro de Comando (Gestão de Agentes)")
+        st.markdown("⚠️ ÁREA RESTRITA: Controle absoluto sobre credenciais, planos e níveis de acesso.")
+        
+        t_lista, t_novo, t_edita = st.tabs(["📋 Efetivo Ativo", "➕ Cadastrar Agente", "✏️ Editar/Remover Agente"])
+        
+        with t_lista:
+            st.markdown("### Lista de Policiais com Acesso")
+            usuarios = get_all_users()
+            if usuarios:
+                df = pd.DataFrame(usuarios, columns=["Credencial (Usuário)", "Cargo (Role)", "Plano", "Vencimento"])
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum dado encontrado.")
+
+        with t_novo:
+            with st.form("form_novo_agente"):
+                st.markdown("### Autorizar Novo Acesso")
+                n_user = st.text_input("Credencial (Nome de Usuário)")
+                n_pwd = st.text_input("Chave (Senha de Acesso)", type="password")
+                
+                c1, c2 = st.columns(2)
+                with c1: n_role = st.selectbox("Nível Hierárquico", ["user", "admin"])
+                with c2: n_plan = st.selectbox("Módulos Permitidos (Plano)", ["GOLD", "SILVER"])
+                
+                n_venc = st.date_input("Vencimento do Acesso", value=datetime.now() + timedelta(days=365))
+                
+                if st.form_submit_button("CADASTRAR AGENTE", type="primary"):
+                    if n_user and n_pwd:
+                        sucesso, msg = create_user(n_user, n_pwd, n_role, n_plan, n_venc.strftime('%Y-%m-%d'))
+                        if sucesso: st.success(msg)
+                        else: st.error(msg)
+                    else: st.warning("Por favor, preencha o Usuário e a Senha.")
+
+        with t_edita:
+            usuarios_lista = [u[0] for u in get_all_users()]
+            if usuarios_lista:
+                alvo = st.selectbox("Selecione o Agente para Modificar", usuarios_lista)
+                
+                with st.form("form_edita_agente"):
+                    st.markdown(f"**Modificando credencial:** `{alvo}`")
+                    e_pwd = st.text_input("Nova Chave/Senha (Deixe em branco para manter a atual)", type="password")
+                    
+                    c3, c4 = st.columns(2)
+                    with c3: e_role = st.selectbox("Novo Nível Hierárquico", ["user", "admin"])
+                    with c4: e_plan = st.selectbox("Novo Plano", ["GOLD", "SILVER"])
+                    
+                    e_venc = st.date_input("Novo Vencimento", value=datetime.now() + timedelta(days=365))
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        btn_att = st.form_submit_button("ATUALIZAR DADOS", type="primary")
+                    with col_btn2:
+                        btn_del = st.form_submit_button("🚨 REVOGAR ACESSO (EXCLUIR)")
+                        
+                    if btn_att:
+                        suc, msg = update_user_db(alvo, e_pwd, e_role, e_plan, e_venc.strftime('%Y-%m-%d'))
+                        if suc: st.success(msg)
+                        
+                    if btn_del:
+                        if alvo == 'leandro':
+                            st.error("Ação Bloqueada: Não é possível excluir a conta do Comandante Supremo.")
+                        else:
+                            suc, msg = delete_user_db(alvo)
+                            if suc: st.success(msg)
+
+    # --------------------------------------------------------------------------
+    # MÓDULOS DE INTELIGÊNCIA OPERACIONAL
+    # --------------------------------------------------------------------------
+    elif menu == "1. Detecção de Armas":
         st.header("🔫 Análise de Armamento e Tática Visual")
         u = st.file_uploader("Submeter Evidência (Imagem)", type=['jpg','png','jpeg'])
         if u and st.button("INICIAR VARREDURA"):
-            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre (Secrets) do Streamlit.")
+            if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre (Secrets).")
             else:
-                with st.spinner("A descodificar armamentos e perímetro..."):
+                with st.spinner("Decodificando armamentos e perímetro..."):
                     try:
                         genai.configure(api_key=GEMINI_API_KEY)
                         model = genai.GenerativeModel('gemini-1.5-flash-latest')
@@ -199,14 +315,14 @@ else:
                     except Exception as e: st.error(f"Falha na análise: {e}")
 
     elif menu == "2. Transcrição de Áudio":
-        st.header("🎙️ Descodificação de Áudio (Whisper)")
+        st.header("🎙️ Decodificação de Áudio (Whisper)")
         t1, t2 = st.tabs(["📁 Arquivo Físico", "🎤 Captura de Microfone"])
         audio_up = None
         with t1: audio_up = st.file_uploader("Submeter Áudio", type=['mp3','wav', 'm4a', 'ogg'])
         with t2: audio_input = st.audio_input("Grave a evidência")
         audio_core = audio_up if audio_up else audio_input
         if audio_core and st.button("PROCESSAR TRANSCRIÇÃO"):
-            with st.spinner("A extrair texto..."):
+            with st.spinner("Extraindo texto..."):
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
                     t.write(audio_core.getvalue()); p = t.name
                 try:
@@ -214,7 +330,7 @@ else:
                     os.remove(p)
                     txt = "".join([s['text'] + "\n" for s in res["segments"]])
                     st.markdown(f"<div class='cyber-box'>{txt}</div>", unsafe_allow_html=True)
-                except Exception as e: st.error(f"Falha na descodificação: {e}")
+                except Exception as e: st.error(f"Falha na decodificação: {e}")
 
     elif menu == "3. Visão Forense":
         st.header("👁️ Tratamento e Restauração Forense")
@@ -241,10 +357,10 @@ else:
     elif menu == "5. Investigação CPF":
         st.header("🔍 Dossiê Pessoal e Triagem")
         cpf = st.text_input("CPF do Alvo (11 dígitos)")
-        if cpf and st.button("PUXAR REGISTOS"):
-            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+        if cpf and st.button("PUXAR REGISTROS"):
+            if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
             else:
-                with st.spinner("A aceder a bases..."):
+                with st.spinner("Acessando bases..."):
                     genai.configure(api_key=GEMINI_API_KEY)
                     model = genai.GenerativeModel('gemini-1.5-flash-latest')
                     prompt = f"Gere um JSON simulando Dossiê para o CPF {cpf}: Nome, RG, Filiação, Endereços, Histórico. JSON PURO."
@@ -261,7 +377,7 @@ else:
         with tab1:
             u_p = st.file_uploader("Evidência Digital", type=['jpg','png','jpeg'])
             if u_p and st.button("ANALISAR PERFIL"):
-                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente.")
                 else:
                     genai.configure(api_key=GEMINI_API_KEY)
                     model = genai.GenerativeModel('gemini-1.5-flash-latest')
@@ -280,133 +396,50 @@ else:
         with st.form("form_bo"):
             loc = st.text_input("Localização do Fato")
             nar = st.text_area("Dinâmica dos Fatos")
-            if st.form_submit_button("GERAR BOLETIM"): st.success("Registado.")
+            if st.form_submit_button("GERAR BOLETIM"): st.success("Registrado.")
 
     elif menu == "8. Gerador de Persona (Cover)":
         st.header("🕵️ Gerador de Pessoas (Identidade Cover)")
-        st.markdown("⚠️ DIRETRIZ: Geração avançada via Motor de IA Neural. Formatação idêntica a bases de dados nacionais.")
-        
         with st.form("form_persona"):
-            st.markdown("### ⚙️ Parâmetros de Geração")
-            
             c1, c2 = st.columns(2)
             with c1:
                 sx = st.radio("Sexo", ["Masculino", "Feminino", "Aleatório"], horizontal=True)
                 idade = st.slider("Idade do Alvo", 18, 80, 30)
             with c2:
                 uf = st.selectbox("Estado (UF)", ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"])
-                pontuacao = st.radio("Pontuação (Máscaras visuais)", ["Sim", "Não"], horizontal=True)
+                pontuacao = st.radio("Pontuação", ["Sim", "Não"], horizontal=True)
 
             if st.form_submit_button("GERAR PESSOA", type="primary"):
-                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
                 else:
-                    with st.spinner("A acionar Motor de Síntese de Identidade (Aguarde)..."):
+                    with st.spinner("Acionando Motor de Síntese..."):
                         try:
                             genai.configure(api_key=GEMINI_API_KEY)
                             model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                            
-                            pont_inst = "USE máscara de pontuação (ex: 123.456.789-00, (11) 99999-9999)" if pontuacao == "Sim" else "NÃO use pontuação, apenas números contínuos (ex: 12345678900, 11999999999)"
-                            
+                            pont_inst = "USE máscara de pontuação" if pontuacao == "Sim" else "NÃO use pontuação"
                             prompt = f"""
-                            Gere uma identidade sintética brasileira hiper-realista.
-                            Parâmetros Obrigatórios: Sexo {sx}, Idade Exata {idade} anos, Estado {uf}.
-                            Regra de formatação: {pont_inst} para CPF, RG, CEP e Telefones.
-                            Atenção: A Cidade DEVE ser uma cidade real que pertence ao estado de {uf}.
-                            
+                            Gere uma identidade sintética brasileira. Sexo {sx}, Idade {idade}, Estado {uf}. {pont_inst}.
                             Retorne EXATAMENTE este JSON puro sem marcadores Markdown:
                             {{
                                 "nome": "", "cpf": "", "rg": "", "data_nasc": "", "idade": "{idade}", "signo": "", "sexo": "{sx}",
-                                "mae": "", "pai": "",
-                                "cep": "", "endereco": "", "numero": "", "bairro": "", "cidade": "", "estado": "{uf}",
-                                "telefone_fixo": "", "celular": "",
-                                "altura": "", "peso": "", "tipo_sanguineo": "", "cor": "",
-                                "profissao": "", "renda": "", "email": "", "senha": "",
-                                "cartao_numero": "", "cartao_validade": "", "cartao_cvv": "", "cartao_bandeira": "",
+                                "mae": "", "pai": "", "cep": "", "endereco": "", "numero": "", "bairro": "", "cidade": "", "estado": "{uf}",
+                                "telefone_fixo": "", "celular": "", "altura": "", "peso": "", "tipo_sanguineo": "", "cor": "",
+                                "profissao": "", "renda": "", "email": "", "senha": "", "cartao_numero": "", "cartao_validade": "", "cartao_cvv": "", "cartao_bandeira": "",
                                 "veiculo_placa": "", "veiculo_renavam": "", "veiculo_chassi": "", "veiculo_marca_modelo": "", "veiculo_ano": ""
                             }}
                             """
                             res = model.generate_content(prompt)
                             json_str = res.text.strip().replace("`" * 3 + "json", "").replace("`" * 3, "").strip()
-                            
-                            p = json.loads(json_str)
-                            st.session_state['persona'] = p 
-                            
-                        except Exception as e:
-                            st.error(f"Falha de conexão com Motor IA. Erro: {e}")
+                            st.session_state['persona'] = json.loads(json_str) 
+                        except Exception as e: st.error(f"Falha de conexão com Motor IA. Erro: {e}")
 
         if 'persona' in st.session_state:
             p = st.session_state['persona']
-            
-            st.success("✅ Identidade Cover sintetizada com sucesso.")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>👤 Dados Pessoais</h4>", unsafe_allow_html=True)
+            st.success("✅ Identidade Cover sintetizada.")
             c1, c2, c3 = st.columns(3)
-            c1.text_input("Nome", p.get('nome',''))
-            c2.text_input("CPF", p.get('cpf',''))
-            c3.text_input("RG", p.get('rg',''))
-            
-            c4, c5, c6, c7 = st.columns(4)
-            c4.text_input("Data de Nascimento", p.get('data_nasc',''))
-            c5.text_input("Idade", str(p.get('idade','')))
-            c6.text_input("Signo", p.get('signo',''))
-            c7.text_input("Sexo", p.get('sexo',''))
-            
-            c8, c9 = st.columns(2)
-            c8.text_input("Mãe", p.get('mae',''))
-            c9.text_input("Pai", p.get('pai',''))
-            st.markdown("---")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>📍 Endereço</h4>", unsafe_allow_html=True)
-            e1, e2, e3 = st.columns([1,2,1])
-            e1.text_input("CEP", p.get('cep',''))
-            e2.text_input("Endereço", p.get('endereco',''))
-            e3.text_input("Número", p.get('numero',''))
-            
-            e4, e5, e6 = st.columns(3)
-            e4.text_input("Bairro", p.get('bairro',''))
-            e5.text_input("Cidade", p.get('cidade',''))
-            e6.text_input("Estado", p.get('estado',''))
-            st.markdown("---")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>📞 Contato e Características Físicas</h4>", unsafe_allow_html=True)
-            f1, f2, f3, f4 = st.columns(4)
-            f1.text_input("Altura", p.get('altura',''))
-            f2.text_input("Peso", p.get('peso',''))
-            f3.text_input("Tipo Sanguíneo", p.get('tipo_sanguineo',''))
-            f4.text_input("Cor", p.get('cor',''))
-            
-            t1, t2 = st.columns(2)
-            t1.text_input("Telefone Fixo", p.get('telefone_fixo',''))
-            t2.text_input("Telemóvel", p.get('celular',''))
-            st.markdown("---")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>💻 Dados Profissionais e Digitais</h4>", unsafe_allow_html=True)
-            o1, o2, o3, o4 = st.columns(4)
-            o1.text_input("Profissão", p.get('profissao',''))
-            o2.text_input("Renda", p.get('renda',''))
-            o3.text_input("Email", p.get('email',''))
-            o4.text_input("Senha", p.get('senha',''))
-            st.markdown("---")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>💳 Cartão de Crédito</h4>", unsafe_allow_html=True)
-            cc1, cc2, cc3, cc4 = st.columns(4)
-            cc1.text_input("Número do Cartão", p.get('cartao_numero',''))
-            cc2.text_input("Validade", p.get('cartao_validade',''))
-            cc3.text_input("CVV", p.get('cartao_cvv',''))
-            cc4.text_input("Bandeira", p.get('cartao_bandeira',''))
-            st.markdown("---")
-            
-            st.markdown("<h4 style='color: #38bdf8;'>🚗 Veículo Registado</h4>", unsafe_allow_html=True)
-            v1, v2, v3, v4, v5 = st.columns(5)
-            v1.text_input("Placa", p.get('veiculo_placa',''))
-            v2.text_input("Renavam", p.get('veiculo_renavam',''))
-            v3.text_input("Chassi", p.get('veiculo_chassi',''))
-            v4.text_input("Marca/Modelo", p.get('veiculo_marca_modelo',''))
-            v5.text_input("Ano", str(p.get('veiculo_ano','')))
-            
+            c1.text_input("Nome", p.get('nome','')); c2.text_input("CPF", p.get('cpf','')); c3.text_input("RG", p.get('rg',''))
             st.markdown("<br>", unsafe_allow_html=True)
-            pdf_bytes = gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", p)
-            st.download_button("BAIXAR DOSSIÊ COMPLETO (PDF)", pdf_bytes, file_name=f"Cover_{p.get('nome').replace(' ', '_')}.pdf", mime="application/pdf", type="primary")
+            st.download_button("BAIXAR DOSSIÊ (PDF)", gerar_pdf_checklist("COVER", p), file_name=f"Cover_{p.get('nome')}.pdf", mime="application/pdf")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Síntese Facial Fotorrealista")
@@ -416,33 +449,29 @@ else:
             etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
             ratio = st.selectbox("Aspecto", ["1:1", "16:9"], index=0)
             if st.form_submit_button("SINTETIZAR ROSTO"):
-                if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+                if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
                 else:
-                    with st.spinner("A renderizar..."):
+                    with st.spinner("Renderizando..."):
                         try:
                             url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
                             payload = {"instances": [{"prompt": f"Foto frontal realista, {gender}, {age} anos, etnia {etnia}, fundo neutro."}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}
                             response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
                             if response.status_code == 200:
-                                img_b64 = response.json()['predictions'][0]['bytesBase64Encoded']
-                                import base64
-                                st.image(Image.open(io.BytesIO(base64.b64decode(img_b64))), use_container_width=True)
-                            else: st.error("Erro da IA.")
-                        except Exception as e: st.error(f"Falha de Síntese: {e}")
+                                st.image(Image.open(io.BytesIO(base64.b64decode(response.json()['predictions'][0]['bytesBase64Encoded']))), use_container_width=True)
+                        except Exception as e: st.error("Falha de Síntese. (Verifique o limite de requisições)")
 
     elif menu == "10. Inteligência Documental":
         st.header("📄 Triagem Documental")
         u = st.file_uploader("Documento Escaneado (Imagem)", type=['png','jpg','jpeg'])
         if u and st.button("EXTRAIR ESTRUTURAS"):
-            if not GEMINI_API_KEY: st.error("Erro: A Chave da API não foi encontrada no cofre do Streamlit.")
+            if not GEMINI_API_KEY: st.error("Erro: Chave API ausente no cofre.")
             else:
                 genai.configure(api_key=GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                res = model.generate_content(["Extraia Nomes, CPFs, RGs, CNPJs, Placas.", Image.open(u)])
+                res = genai.GenerativeModel('gemini-1.5-flash-latest').generate_content(["Extraia Nomes, CPFs, RGs, CNPJs, Placas.", Image.open(u)])
                 st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
 
     elif menu == "11. Gestão de Operações":
-        st.header("📋 Comando e Controlo")
+        st.header("📋 Comando e Controle")
         with st.form("form_op"):
             op_nome = st.text_input("Operação / Missão")
             if st.form_submit_button("GERAR ORDEM"): st.success("Ordem estruturada.")

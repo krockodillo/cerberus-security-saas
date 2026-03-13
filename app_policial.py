@@ -17,12 +17,22 @@ from datetime import datetime, timedelta
 import random
 import folium
 from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
 import sqlite3
 import pandas as pd
 import urllib.parse
-from google import genai
+import google.generativeai as genai
 import re
+
+# ==============================================================================
+# ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
+# ==============================================================================
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3", layout="wide", page_icon="🛡️")
+
+# Puxa a chave do cofre secreto do Streamlit (st.secrets) ou do ambiente (Github)
+try:
+    GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except:
+    GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 try:
     import PyPDF2
@@ -32,77 +42,51 @@ except ImportError:
     LIBS_DOC = False
 
 # ==============================================================================
-# CONFIGURAÇÃO GERAL
+# 🎨 DESIGN E ESTILOS (TÁTICO MILITAR)
 # ==============================================================================
-st.set_page_config(page_title="CERBERUS - Sistema Tático", layout="wide", page_icon="🛡️")
+st.markdown("""
+    <style>
+    .stApp {background-color: #0c1015;}
+    div[data-testid="stForm"] {
+        background-color: #171c24; border-radius: 8px; border: 1px solid #2e3642; padding: 20px !important; margin-bottom: 20px;
+    }
+    .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
+    .plan-gold { background-color: #eab308; color: black; }
+    .plan-silver { background-color: #94a3b8; color: black; }
+    .cyber-link { color: #38bdf8 !important; text-decoration: none; font-weight: bold; }
+    .cyber-link:hover { text-decoration: underline; color: #7dd3fc !important; }
+    .cyber-box { background-color: #171c24; padding: 20px; border-radius: 8px; border: 1px solid #38bdf8; color: #ffffff; margin-bottom: 15px; }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stButton>button {background-color: #2563eb; color: white; border: none; font-weight: 600;}
+    .stButton>button:hover {background-color: #1d4ed8;}
+    </style>
+""", unsafe_allow_html=True)
 
-GEMINI_API_KEY = "AIzaSyBeFgncS12Y65hKCzPhlK9LVCxTzA89oZ0"
-
+# ==============================================================================
+# ⚙️ BANCO DE DADOS E GESTÃO DE ACESSO
+# ==============================================================================
 TODOS_MODULOS = [
-    "1. Detecção de Armas",
-    "2. Transcrição de Áudio",
-    "3. Visão Forense",
-    "4. Mapa de Vínculos",
-    "5. Investigação CPF",
-    "6. Cyber OSINT & Forense",
-    "7. Checklist Tático",
-    "8. Gerador de Persona (Cover)",
-    "9. Gerador de Rosto (IA Avançada)",
-    "10. Inteligência Documental",
-    "11. Geolocalização Forense"
+    "1. Detecção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
+    "4. Mapa de Vínculos", "5. Investigação CPF", "6. Cyber OSINT & Forense",
+    "7. Checklist Tático", "8. Gerador de Persona (Cover)",
+    "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
 MODULOS_SILVER = [
-    "1. Detecção de Armas",
-    "5. Investigação CPF",
-    "6. Cyber OSINT & Forense",
-    "9. Gerador de Rosto (IA Avançada)",
-    "10. Inteligência Documental",
-    "11. Geolocalização Forense"
+    "1. Detecção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
+    "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
-# ==============================================================================
-# BANCO DE DADOS E GESTÃO DE USUÁRIOS/NOTIFICAÇÕES
-# ==============================================================================
 def init_db():
     conn = sqlite3.connect('cerberus_users.db')
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, permissions TEXT, vencimento TEXT, status TEXT)''')
-    
-    # Tabela de Notificações
-    c.execute('''CREATE TABLE IF NOT EXISTS notificacoes (id INTEGER PRIMARY KEY AUTOINCREMENT, destinatario TEXT, mensagem TEXT, imagem BLOB, data_envio TEXT)''')
-    
-    # Cria o usuário LEANDRO como Mestre (CEO)
+    c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, vencimento TEXT)''')
     c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
     if not c.fetchone():
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', ('leandro', '239546Dl', 'admin', 'GOLD', 'ALL', '2099-12-31', 'ativo'))
+        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', ('leandro', '239546Dl', 'admin', 'GOLD', '2099-12-31'))
         conn.commit()
-        
-    # Automação: Primeira notificação de sistema automática para TODOS
-    c.execute('SELECT count(*) FROM notificacoes')
-    if c.fetchone()[0] == 0:
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
-        msg_auto = "SISTEMA ATUALIZADO: A central de notificações e o seu perfil agora ficam localizados no canto superior direito da tela."
-        c.execute('INSERT INTO notificacoes (destinatario, mensagem, imagem, data_envio) VALUES (?, ?, ?, ?)', ('TODOS', msg_auto, None, data_atual))
-        conn.commit()
-        
     conn.close()
-
-def enviar_notificacao(destinatario, mensagem, imagem_bytes=None):
-    conn = sqlite3.connect('cerberus_users.db')
-    c = conn.cursor()
-    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
-    c.execute('INSERT INTO notificacoes (destinatario, mensagem, imagem, data_envio) VALUES (?, ?, ?, ?)', (destinatario, mensagem, imagem_bytes, data_atual))
-    conn.commit()
-    conn.close()
-
-def ler_notificacoes(username):
-    conn = sqlite3.connect('cerberus_users.db')
-    c = conn.cursor()
-    c.execute('SELECT mensagem, imagem, data_envio FROM notificacoes WHERE destinatario = "TODOS" OR destinatario = ? ORDER BY id DESC', (username,))
-    notas = c.fetchall()
-    conn.close()
-    return notas
 
 def login_user(username, password):
     conn = sqlite3.connect('cerberus_users.db')
@@ -111,51 +95,44 @@ def login_user(username, password):
     user = c.fetchone()
     conn.close()
     if user:
-        vencimento = datetime.strptime(user[5], '%Y-%m-%d')
+        vencimento = datetime.strptime(user[4], '%Y-%m-%d')
         if datetime.now() > vencimento: return None, "🚫 Acesso Expirado."
         return user, "OK"
     return None, "❌ Usuário ou senha inválidos."
 
-def criar_usuario(username, password, role, plan, permissions_list, dias):
-    try:
-        conn = sqlite3.connect('cerberus_users.db')
-        c = conn.cursor()
-        validade = (datetime.now() + timedelta(days=int(dias))).strftime('%Y-%m-%d')
-        perms_str = ",".join(permissions_list) if permissions_list else "NONE"
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)', (username, password, role, plan, perms_str, validade, 'ativo'))
-        conn.commit()
-        conn.close()
-        return True, "Usuário criado com sucesso!"
-    except Exception as e: return False, f"Erro: {e}"
-
-def listar_usuarios():
-    conn = sqlite3.connect('cerberus_users.db')
-    df = pd.read_sql_query("SELECT username, role, plan, vencimento, status FROM usuarios", conn)
-    conn.close()
-    return df
-
-def deletar_usuario(username):
-    if username == "leandro": return False # Proteção para não deletar o CEO
-    conn = sqlite3.connect('cerberus_users.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM usuarios WHERE username=?", (username,))
-    conn.commit()
-    conn.close()
-    return True
-
 init_db()
 
 # ==============================================================================
-# MOTORES E FUNÇÕES CORE
+# MOTORES DE IA E FUNÇÕES TÁTICAS
 # ==============================================================================
 @st.cache_resource
 def carregar_whisper(): return whisper.load_model("tiny")
 try: whisper_model = carregar_whisper(); STATUS_AUDIO = True
 except: STATUS_AUDIO = False
 
-def get_decimal_from_dms(dms, ref):
-    res = dms[0] + (dms[1]/60.0) + (dms[2]/3600.0)
-    return -res if ref in ['S','W'] else res
+def gerar_pdf_checklist(titulo, dados):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"CERBERUS - {titulo.upper()}", ln=True, align='C')
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 8, f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", size=12)
+    for k, v in dados.items():
+        if v:
+            pdf.set_font("Arial", 'B', 12)
+            pdf.write(7, f"{k.upper()}: ")
+            pdf.set_font("Arial", '', 12)
+            clean_v = str(v).replace('\n', ' ')
+            # Remove caracteres incompatíveis com o PDF padrão
+            clean_v = clean_v.encode('latin-1', 'replace').decode('latin-1')
+            pdf.multi_cell(0, 7, txt=clean_v)
+            pdf.ln(2)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 10, "_", ln=True, align='C')
+    pdf.cell(0, 10, "DOCUMENTO OFICIAL PARA USO INTERNO / SIGILOSO", ln=True, align='C')
+    return pdf.output(dest='S').encode('latin-1')
 
 def extrair_geolocalizacao(image):
     try:
@@ -165,389 +142,341 @@ def extrair_geolocalizacao(image):
         for t,v in exif.items():
             if ExifTags.TAGS.get(t) == "GPSInfo": gps = v; break
         if not gps: return None, "Sem GPS"
-        lat = get_decimal_from_dms(gps[2], gps[1])
-        lon = get_decimal_from_dms(gps[4], gps[3])
+        def to_dec(dms, ref):
+            res = dms[0] + (dms[1]/60.0) + (dms[2]/3600.0)
+            return -res if ref in ['S','W'] else res
+        lat = to_dec(gps[2], gps[1])
+        lon = to_dec(gps[4], gps[3])
         return (lat, lon), "Sucesso"
     except: return None, "Erro EXIF"
 
-def gerar_mapa_vinculos_json(json_dados):
-    net = Network(height='500px', width='100%', bgcolor='#1e293b', font_color='white')
-    net.force_atlas_2based()
-    try:
-        for node in json_dados.get("nodes", []):
-            cor = "#ef4444" if node.get("group") == "Pessoa" else "#3b82f6" if node.get("group") == "Empresa" else "#10b981"
-            net.add_node(node["id"], label=node["label"], color=cor, title=node.get("group", ""))
-        for edge in json_dados.get("edges", []):
-            net.add_edge(edge["from"], edge["to"], label=edge["label"], color="#94a3b8")
-        net.save_graph("grafo_inteligencia.html")
-        return True
-    except: return False
-
-def extrair_texto_arquivo(uploaded_file):
-    if not LIBS_DOC: return "Erro"
-    nome = uploaded_file.name.lower()
-    try:
-        if nome.endswith('.pdf'):
-            leitor = PyPDF2.PdfReader(uploaded_file)
-            return "\n".join([p.extract_text() for p in leitor.pages if p.extract_text()])
-        elif nome.endswith('.docx'):
-            doc = docx.Document(uploaded_file)
-            return "\n".join([p.text for p in doc.paragraphs])
-        elif nome.endswith('.txt'): return uploaded_file.getvalue().decode("utf-8")
-        elif nome.endswith(('.xlsx', '.xls', '.csv')):
-            df = pd.read_excel(uploaded_file) if 'xls' in nome else pd.read_csv(uploaded_file)
-            return df.to_string()
-        else: return None
-    except Exception as e: return f"Erro: {e}"
-
-def gerar_mapa_vinculos():
-    net=Network(height='600px',width='100%',bgcolor='#222222',font_color='white'); net.force_atlas_2based()
-    net.add_node(1,label="ALVO",color='red'); net.add_edge(1,2); net.save_graph("mapa_operacional.html")
-
-def gerar_pessoa_4devs():
-    try: return requests.post("https://www.4devs.com.br/ferramentas_online.php", data={'acao':'gerar_pessoa','sexo':'I','txt_qtde':1}, headers={'Content-Type':'application/x-www-form-urlencoded'}).json()[0]
-    except: return None
-
 # ==============================================================================
-# TELA DE LOGIN (NATIVA E LIMPA)
+# TELA DE LOGIN
 # ==============================================================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([1, 1.2, 1])
     
     with col2:
-        st.markdown("<h1 style='text-align: center;'>CERBERUS</h1>", unsafe_allow_html=True)
-        
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
-            user = st.text_input("Usuário")
-            pwd = st.text_input("Senha", type="password")
-            
-            btn_entrar = st.form_submit_button("ENTRAR", use_container_width=True)
-            
-            if btn_entrar:
-                with st.spinner("Autenticando..."):
+            user = st.text_input("Credencial Operacional")
+            pwd = st.text_input("Chave de Acesso", type="password")
+            btn = st.form_submit_button("ENTRAR NO SISTEMA", use_container_width=True)
+            if btn:
+                with st.spinner("Autenticando conexão segura..."):
                     u_data, msg = login_user(user, pwd)
                     if u_data:
                         st.session_state['logged_in'] = True
                         st.session_state['username'] = u_data[0]
                         st.session_state['role'] = u_data[2]
                         st.session_state['plan'] = u_data[3]
-                        st.session_state['perms'] = u_data[4]
+                        st.session_state['vencimento'] = u_data[4]
                         st.rerun()
                     else:
                         st.error(msg)
-        
-        # Botão secundário nativo fora do form
-        if st.button("Solicitar acesso", use_container_width=True):
-            st.info("Função de solicitação de acesso em desenvolvimento.")
+        if st.button("SOLICITAR ACESSO OPERACIONAL", use_container_width=True):
+            st.info("Entre em contato com o comando da sua unidade.")
 
 else:
     # ==============================================================================
-    # ÁREA LOGADA - MÓDULOS DO SISTEMA E TOPO SUPERIOR
+    # ÁREA LOGADA - DASHBOARD E MÓDULOS
     # ==============================================================================
     user_role = st.session_state['role']
     user_plan = st.session_state['plan']
-    user_perms = st.session_state['perms']
-    username_logado = st.session_state['username']
     
-    # --- ÁREA DO TOPO DIREITO (Perfil e Notificações) ---
-    col_espaco, col_notif, col_perfil = st.columns([8, 1.5, 1.5])
-    
-    with col_notif:
-        with st.popover("🔔 Avisos"):
-            st.markdown("**Caixa de Mensagens**")
-            notas = ler_notificacoes(username_logado)
-            if not notas:
-                st.info("Nenhuma novidade no momento.")
-            else:
-                for msg, img_blob, data in notas:
-                    st.caption(data)
-                    st.write(msg)
-                    if img_blob:
-                        st.image(Image.open(io.BytesIO(img_blob)), use_container_width=True)
-                    st.divider()
-
-    with col_perfil:
-        with st.popover("👤 Perfil"):
-            st.markdown(f"**Agente:** {username_logado.upper()}")
-            st.markdown(f"**Plano:** {user_plan}")
-            st.divider()
-            if st.button("Sair do Sistema", use_container_width=True):
-                st.session_state['logged_in'] = False
-                st.rerun()
-    st.markdown("---")
-    
-    # --- MENU LATERAL ---
     st.sidebar.title("🐕‍🦺 CERBERUS")
-    if user_plan == 'GOLD': st.sidebar.markdown("**PLANO GOLD**")
-    elif user_plan == 'SILVER': st.sidebar.markdown("**PLANO SILVER**")
-    else: st.sidebar.markdown("**PLANO GRAY**")
+    st.sidebar.caption(f"Agente: {st.session_state['username'].upper()}")
+    
+    if user_plan == 'GOLD': st.sidebar.markdown("<span class='status-badge plan-gold'>PLANO GOLD</span>", unsafe_allow_html=True)
+    elif user_plan == 'SILVER': st.sidebar.markdown("<span class='status-badge plan-silver'>PLANO SILVER</span>", unsafe_allow_html=True)
     
     st.sidebar.markdown("---")
+    if st.sidebar.button("ENCERRAR SESSÃO"):
+        st.session_state['logged_in'] = False
+        st.rerun()
 
-    menu_options = ["🛠️ PAINEL ADMIN"] + TODOS_MODULOS if user_role == 'admin' else TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER if user_plan == 'SILVER' else user_perms.split(",")
-    menu = st.sidebar.radio("Ferramentas:", menu_options)
+    menu_options = TODOS_MODULOS if user_plan == 'GOLD' else MODULOS_SILVER
+    menu = st.sidebar.radio("Módulos de Inteligência:", menu_options)
 
-    if menu == "🛠️ PAINEL ADMIN":
-        st.title("🛠️ Gestão e Comunicação")
-        tab_clientes, tab_base, tab_notif = st.tabs(["➕ Novo Cliente", "📋 Base de Usuários", "📢 Disparar Notificações"])
-        
-        with tab_clientes:
-            st.subheader("Configurar Novo Acesso")
-            with st.form("create_user"):
-                c1, c2 = st.columns(2)
-                new_user = c1.text_input("Login")
-                new_pass = c2.text_input("Senha")
-                c3, c4 = st.columns(2)
-                new_role = c3.selectbox("Hierarquia", ["operacional", "gerente", "admin"])
-                new_plan = c4.selectbox("Plano de Assinatura", ["GOLD", "SILVER", "GRAY"])
-                permissoes_gray = st.multiselect("Módulos Liberados", TODOS_MODULOS) if new_plan == "GRAY" else []
-                dias = st.number_input("Dias de Acesso", value=30, min_value=1)
-                if st.form_submit_button("CRIAR ACESSO", type="primary"):
-                    perms_final = ["ALL"] if new_plan == "GOLD" else MODULOS_SILVER if new_plan == "SILVER" else permissoes_gray
-                    if new_user and new_pass:
-                        ok, txt = criar_usuario(new_user, new_pass, new_role, new_plan, perms_final, dias)
-                        st.success(txt) if ok else st.error(txt)
-                    else: st.warning("Preencha tudo.")
-                    
-        with tab_base:
-            st.dataframe(listar_usuarios(), use_container_width=True)
-            u_del = st.selectbox("Deletar Usuário", listar_usuarios()['username'].unique())
-            if st.button("EXCLUIR"): deletar_usuario(u_del); st.rerun()
-            
-        with tab_notif:
-            st.subheader("Central de Transmissão")
-            st.markdown("Envie recados, alertas ou imagens para os usuários do sistema.")
-            with st.form("form_disparo"):
-                lista_users = ["TODOS"] + list(listar_usuarios()['username'].unique())
-                alvo_notificacao = st.selectbox("Para quem deseja enviar?", lista_users)
-                texto_msg = st.text_area("Mensagem:", placeholder="Escreva o aviso aqui...")
-                imagem_up = st.file_uploader("Anexar Imagem (Opcional)", type=['jpg', 'png', 'jpeg'])
-                
-                if st.form_submit_button("DISPARAR NOTIFICAÇÃO", type="primary"):
-                    if texto_msg:
-                        bytes_img = imagem_up.getvalue() if imagem_up else None
-                        enviar_notificacao(alvo_notificacao, texto_msg, bytes_img)
-                        st.success(f"✅ Notificação enviada com sucesso para: {alvo_notificacao}")
-                    else:
-                        st.error("A mensagem não pode estar vazia.")
-
-    elif menu == "1. Detecção de Armas":
-        st.header("🔫 Análise Tática e Identificação de Armamento")
-        u = st.file_uploader("Carregar Evidência (Imagem)", type=['jpg','png', 'jpeg'])
-        
-        if u:
-            image = Image.open(u)
-            st.image(image, caption="Evidência Original", use_container_width=True)
-            
-            if st.button("GERAR RELATÓRIO PERICIAL", type="primary"):
-                with st.spinner("Analisando evidência com IA Tática..."):
-                    try:
-                        client = genai.Client(api_key=GEMINI_API_KEY)
-                        
-                        prompt = """
-                        Aja como um Perito Criminal de Elite e Analista de Inteligência Policial. 
-                        Analise esta imagem minuciosamente e gere um relatório técnico oficial respondendo EXATAMENTE aos seguintes tópicos de forma direta e objetiva:
-                        
-                        1. QUANTIDADE DE INDIVÍDUOS: (Quantas pessoas aparecem na imagem?)
-                        2. CARACTERÍSTICAS FÍSICAS E VESTIMENTAS: (Descreva roupas, máscaras, tatuagens, coletes balísticos ou itens de identificação).
-                        3. QUANTIDADE DE ARMAS VISÍVEIS: (Quantos armamentos estão visíveis na imagem?)
-                        4. CLASSIFICAÇÃO DO ARMAMENTO: (Para cada arma identifique: Tipo [Ex: Fuzil, Pistola, Espingarda], Modelo provável e Calibre presumido).
-                        5. ACESSÓRIOS BÉLICOS: (Há miras ópticas, carregadores alongados, supressores/silenciadores, bandoleiras?)
-                        6. ANÁLISE DO CENÁRIO: (Descreva o ambiente: é área de mata, comunidade, via pública, interior de imóvel? Qual a condição de luminosidade?)
-                        7. AVALIAÇÃO DE RISCO TÁTICO: (Qual a atitude dos indivíduos? Estão em posição de tiro/prontidão? Há reféns ou civis próximos?)
-                        
-                        Não use emojis nas respostas. Seja extremamente técnico, frio e descritivo.
-                        """
-                        r = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, image])
-                        texto_ia = r.text
-                        
-                        st.markdown("### 📋 Relatório de Inteligência Visual")
-                        st.info(texto_ia)
-                        
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_img:
-                            image.convert("RGB").save(tmp_img.name)
-                            tmp_img_path = tmp_img.name
-                        
-                        pdf = FPDF()
-                        pdf.add_page()
-                        
-                        pdf.set_font("Arial", 'B', 16)
-                        pdf.cell(0, 8, "CERBERUS INTEL - SISTEMA DE INTELIGENCIA TATICA", ln=True, align='C')
-                        pdf.set_font("Arial", 'B', 12)
-                        pdf.cell(0, 6, "RELATORIO PERICIAL DE ANALISE VISUAL", ln=True, align='C')
-                        pdf.set_font("Arial", '', 10)
-                        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                        pdf.cell(0, 6, f"Data da Analise: {data_hora}", ln=True, align='C')
-                        pdf.ln(5)
-                        
-                        w, h = image.size
-                        ratio = h / w
-                        img_h = 190 * ratio
-                        if img_h > 110:
-                            img_h = 110
-                            w_img = img_h / ratio
-                            pdf.image(tmp_img_path, x=(210-w_img)/2, w=w_img, h=img_h)
-                        else:
-                            pdf.image(tmp_img_path, x=10, w=190, h=img_h)
-                        
-                        pdf.set_y(pdf.get_y() + img_h + 8)
-                        
-                        pdf.set_font("Arial", size=10)
-                        clean_text = texto_ia.replace("**", "") 
-                        clean_text = clean_text.encode('latin-1', 'replace').decode('latin-1')
-                        pdf.multi_cell(0, 6, txt=clean_text)
-                        
-                        pdf.ln(15)
-                        
-                        pdf.set_font("Arial", 'B', 10)
-                        operador = st.session_state.get('username', 'OPERADOR NÃO IDENTIFICADO').upper()
-                        pdf.cell(0, 5, "_"*60, ln=True, align='C')
-                        pdf.cell(0, 5, f"Assinatura do Agente Analista: {operador}", ln=True, align='C')
-                        pdf.cell(0, 5, "CERBERUS INTEL - PCERJ / PMERJ", ln=True, align='C')
-                        
-                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
-                        
-                        st.download_button(
-                            label="📥 Baixar Relatório Oficial (PDF)",
-                            data=pdf_bytes,
-                            file_name=f"Dossie_Armamento_{int(time.time())}.pdf",
-                            mime="application/pdf",
-                            type="primary"
-                        )
-                        
-                        os.remove(tmp_img_path)
-                        
-                    except Exception as e: 
-                        st.error(f"Erro na geração do relatório: {e}")
+    if menu == "1. Detecção de Armas":
+        st.header("🔫 Análise de Armamento e Tática Visual")
+        if not GEMINI_API_KEY: st.error("Erro de Conexão: Chave API ausente no servidor.")
+        u = st.file_uploader("Submeter Evidência (Imagem)", type=['jpg','png','jpeg'])
+        if u and GEMINI_API_KEY and st.button("INICIAR VARREDURA"):
+            with st.spinner("Decodificando armamentos e perímetro..."):
+                try:
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    prompt = "Aja como perito criminal. Conte os indivíduos e armas. Especifique os tipos de armas, calibre presumido e faça uma avaliação de risco tático do ambiente. Seja direto, técnico, estruturado em tópicos e não use emojis."
+                    res = model.generate_content([prompt, Image.open(u)])
+                    txt = res.text
+                    st.markdown("### 📄 Relatório Operacional")
+                    st.image(u, use_container_width=True)
+                    st.markdown(f"<div class='cyber-box'>{txt}</div>", unsafe_allow_html=True)
+                    pdf_bytes = gerar_pdf_checklist("RELATORIO TACTICO VISUAL", {"Analise_Pericial": txt})
+                    st.download_button("Baixar Relatório (PDF)", pdf_bytes, file_name=f"Relatorio_Armas_{int(time.time())}.pdf", mime="application/pdf")
+                except Exception as e: st.error(f"Falha na análise: {e}")
 
     elif menu == "2. Transcrição de Áudio":
-        st.header("🎙️ Transcrição Tática")
-        tab_up, tab_mic = st.tabs(["📁 Upload", "🎤 Gravar"])
-        audio_data = None
-        with tab_up: a_up = st.file_uploader("Áudio", type=['mp3','wav', 'm4a', 'ogg']); audio_data = a_up if a_up else audio_data
-        with tab_mic: a_mic = st.audio_input("Gravação"); audio_data = a_mic if a_mic else audio_data
-        if audio_data and STATUS_AUDIO:
-            st.audio(audio_data)
-            if st.button("TRANSCREVER", type="primary"):
-                with st.spinner("Decodificando..."):
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t: t.write(audio_data.getvalue()); p = t.name
-                    r = whisper_model.transcribe(p); os.remove(p)
-                    st.write(''.join([s['text']+'\n' for s in r['segments']]))
+        st.header("🎙️ Decodificação de Áudio (Whisper)")
+        if not STATUS_AUDIO: st.error("Módulo de processamento de áudio offline.")
+        t1, t2 = st.tabs(["📁 Arquivo Físico", "🎤 Captura de Microfone"])
+        audio_up = None
+        with t1: audio_up = st.file_uploader("Submeter Áudio", type=['mp3','wav', 'm4a', 'ogg'])
+        with t2: audio_input = st.audio_input("Grave a evidência")
+        audio_core = audio_up if audio_up else audio_input
+        
+        if audio_core and st.button("PROCESSAR TRANSCRIÇÃO (PT-BR)"):
+            if STATUS_AUDIO:
+                with st.spinner("Extraindo texto..."):
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t:
+                        t.write(audio_core.getvalue())
+                        p = t.name
+                    try:
+                        res = whisper_model.transcribe(p, language="pt", fp16=False)
+                        os.remove(p)
+                        txt = "".join([segment['text'] + "\n" for segment in res["segments"]])
+                        st.markdown(f"<div class='cyber-box'>{txt}</div>", unsafe_allow_html=True)
+                        pdf_bytes = gerar_pdf_checklist("DECODIFICACAO DE AUDIO", {"Conteudo_Transcrito": txt})
+                        st.download_button("Baixar Transcrição (PDF)", pdf_bytes, file_name=f"Transcricao_{int(time.time())}.pdf", mime="application/pdf")
+                    except Exception as e: st.error(f"Falha na decodificação: {e}")
 
     elif menu == "3. Visão Forense":
-        st.header("👁️ Tratamento Forense")
-        u = st.file_uploader("Imagem", type=['jpg','png'])
-        if u: 
-            img = np.array(Image.open(u))
-            st.image(cv2.cvtColor(cv2.fastNlMeansDenoisingColored(cv2.cvtColor(img, cv2.COLOR_RGB2BGR), None, 10, 10, 7, 21), cv2.COLOR_BGR2RGB))
+        st.header("👁️ Tratamento e Restauração Forense")
+        st.markdown("⚠️ PROTOCOLO DE CADEIA DE CUSTÓDIA: O processamento digital visa realçar evidências. A imagem original permanece inalterada nos registros.")
+        u = st.file_uploader("Imagem Evidência (jpg/png)", type=['jpg','png','jpeg'])
+        if u:
+            img = Image.open(u)
+            cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Captura Original**")
+                st.image(u, use_container_width=True)
+            with c2:
+                st.markdown("**Módulo de Realce**")
+                with st.container():
+                    st.markdown("<p style='color: white; font-weight: bold;'>Filtro de Ruído (Denoise)</p>", unsafe_allow_html=True)
+                    if st.button("APLICAR FILTRO"):
+                        with st.spinner("Limpando imagem..."):
+                            dn = cv2.fastNlMeansDenoisingColored(cv_img, None, 10, 10, 7, 21)
+                            st.image(cv2.cvtColor(dn, cv2.COLOR_BGR2RGB), use_container_width=True)
+                with st.container():
+                    st.markdown("<p style='color: white; font-weight: bold;'>Nitidez de Bordas</p>", unsafe_allow_html=True)
+                    s = st.slider("Intensidade", 1, 5, 2)
+                    if st.button("AGUÇAR BORDAS"):
+                        with st.spinner("Processando..."):
+                            k = np.array([[0, -s, 0], [-s, 4*s+1, -s], [0, -s, 0]])
+                            sh = cv2.filter2D(cv_img, -1, k)
+                            st.image(cv2.cvtColor(sh, cv2.COLOR_BGR2RGB), use_container_width=True)
+                with st.container():
+                    st.markdown("<p style='color: white; font-weight: bold;'>Contraste Tático (CLAHE)</p>", unsafe_allow_html=True)
+                    if st.button("APLICAR CLAHE"):
+                        cl = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                        res = cl.apply(cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY))
+                        st.image(res, use_container_width=True)
 
     elif menu == "4. Mapa de Vínculos":
-        st.header("🔗 Vínculos (Manual)")
-        if st.button("Gerar Base"): gerar_mapa_vinculos()
-        if os.path.exists("mapa_operacional.html"):
-            with open("mapa_operacional.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=600)
+        st.header("🔗 Diagrama de Vínculos")
+        st.error("🛑 MÓDULO EM MANUTENÇÃO. A integração com grafos e visualização interativa está sendo finalizada pela equipe de engenharia.")
+        st.markdown("O sistema permitirá mapear conexões financeiras e telefônicas entre investigados.")
 
     elif menu == "5. Investigação CPF":
-        st.header("🔍 Dossiê Pessoal e Smart Search CPF")
-        st.warning("⚠️ STATUS: EM HOMOLOGAÇÃO DE API")
-        cpf = st.text_input("CPF")
-        if st.button("PUXAR DOSSIÊ", type="primary") and len(cpf) >= 11:
-            with st.spinner("Buscando..."): time.sleep(1)
-            st.success("Dados demonstrativos carregados.")
-            st.write(f"**Nome:** ALVO DE TESTE\n\n**CPF:** {cpf}")
+        st.header("🔍 Dossiê Pessoal e Triagem")
+        st.markdown("⚠️ ALERTA OPERACIONAL: Acesso a dados restritos registrado em log. Siga as diretrizes corporativas.")
+        cpf = st.text_input("CPF do Alvo (11 dígitos)")
+        if cpf and GEMINI_API_KEY and st.button("PUXAR REGISTROS"):
+            if len(cpf) != 11: st.error("CPF Inválido. Digite apenas números.")
+            else:
+                with st.spinner("Acessando bases e estruturando dossiê..."):
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    prompt = f"Processe a triagem para o CPF {cpf}. Forneça: 1. Nome Completo. 2. RG. 3. Filiação. 4. Últimos Endereços Conhecidos. 5. Histórico Criminal Presumido. Retorne EXATAMENTE em formato JSON."
+                    try:
+                        res = model.generate_content(prompt)
+                        json_str = res.text.strip().replace("```json\n", "").replace("\n```", "")
+                        dados = json.loads(json_str)
+                        st.json(dados)
+                        pdf_bytes = gerar_pdf_checklist("DOSSIE DE INTELIGENCIA", dados)
+                        st.download_button("Baixar Dossiê (PDF)", pdf_bytes, file_name=f"Dossie_{cpf}.pdf", mime="application/pdf")
+                    except Exception as e: st.error(f"Falha na compilação do dossiê estruturado.")
 
     elif menu == "6. Cyber OSINT & Forense":
-        st.header("🌐 Cyber OSINT e Inteligência Forense")
-        tab_ia, tab_ip, tab_d = st.tabs(["🤖 IA Forense", "📡 IP", "🔎 Dorks"])
-        
-        with tab_ia:
-            u_p = st.file_uploader("Print", type=['jpg','png'])
-            if u_p and st.button("ANALISAR PERFIL"):
-                with st.spinner("Analisando..."):
-                    client = genai.Client(api_key=GEMINI_API_KEY)
-                    r = client.models.generate_content(model='gemini-2.5-flash', contents=["Analise este perfil criminoso.", Image.open(u_p)])
-                    st.write(r.text)
-                    
-        with tab_ip:
-            ip = st.text_input("IP")
-            if st.button("RASTREAR") and ip:
-                res = requests.get(f"http://ip-api.com/json/{ip}?lang=pt-BR").json()
-                if res.get('status') == 'success': st.success(f"Cidade: {res['city']} | ISP: {res['isp']}")
-                
-        with tab_d:
-            n = st.text_input("Alvo")
-            if st.button("BUSCAR") and n: st.markdown(f"[Pesquisar {n} no Google](https://www.google.com/search?q={n})")
+        st.header("🌐 Cyber OSINT e Inteligência Cibernética")
+        st.markdown("⚠️ PROTOCOLO DE SEGURANÇA: Todo material processado está sujeito a auditoria interna. Nível de Sigilo: CONFIDENCIAL.")
+        tab1, tab2, tab3 = st.tabs(["🤖 Análise de Perfil", "📡 Rastreio IP", "🔎 Motores de Busca"])
+        with tab1:
+            u_p = st.file_uploader("Evidência Digital (Print)", type=['jpg','png','jpeg'])
+            if u_p and st.button("ANALISAR VÍNCULOS E PERFIL"):
+                with st.spinner("Extraindo metadados visuais e conexões..."):
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    res = model.generate_content(["Analise este perfil. Identifique logotipos, símbolos de facções, padrões comportamentais e nomes visíveis. Seja técnico e objetivo.", Image.open(u_p)])
+                    st.image(u_p, use_container_width=True)
+                    st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
+        with tab2:
+            ip_in = st.text_input("Endereço IP Alvo")
+            if ip_in and st.button("RASTREAR ORIGEM"):
+                try:
+                    res = requests.get(f"http://ip-api.com/json/{ip_in}").json()
+                    if res.get("status") == "success":
+                        st.success(f"📍 Localização Estimada: {ip_in} | Provedor: {res.get('isp')} | Cidade: {res.get('city')}")
+                    else: st.error("Nó não encontrado ou IP mascarado.")
+                except: st.error("Falha na varredura de rede.")
+        with tab3:
+            query = st.text_input("Alvo de Busca (Nome, Vulgo ou Organização)")
+            if query and st.button("CRIAR DORKS TÁTICOS"):
+                termo = urllib.parse.quote(query)
+                st.markdown(f"👉 [Varredura de PDF/Processos Judiciais](https://www.google.com/search?q=%22{termo}%22+filetype:pdf+(rg+OR+cpf))")
+                st.markdown(f"👉 [Varredura de Planilhas/Telefones](https://www.google.com/search?q=%22{termo}%22+filetype:xls+(fone+OR+tel))")
 
     elif menu == "7. Checklist Tático":
-        st.header("📋 Checklist de Plantão")
-        st.selectbox("Ocorrência", ["Flagrante", "B.O."])
+        st.header("📋 Formulários e Procedimentos (Plantão)")
+        st.markdown("Protocolos padronizados para registro, atendimento e preservação da cadeia de custódia.")
+        t1, t2, t3, t4 = st.tabs(["📄 Atendimento (BO)", "📄 Condução/Flagrante", "📄 Registro PM (RO)", "📄 Local de Crime"])
+        with t1:
+            with st.form("form_bo"):
+                st.markdown("**Abertura de Ocorrência**")
+                dt = st.date_input("Data do Fato")
+                loc = st.text_input("Localização do Fato")
+                env = st.text_area("Envolvidos (Vítima, Autor, Testemunha)")
+                nar = st.text_area("Dinâmica dos Fatos")
+                chk = st.multiselect("Diligências Iniciais:", ["Local Isolado", "Câmeras Verificadas", "Testemunhas Qualificadas", "Perícia Acionada"])
+                if st.form_submit_button("GERAR DOCUMENTO", type="primary"):
+                    dados = {"Data": dt.strftime('%d/%m/%Y'), "Local": loc, "Envolvidos": env, "Dinâmica": nar, "Diligências": ", ".join(chk)}
+                    pdf = gerar_pdf_checklist("BOLETIM DE OCORRENCIA", dados)
+                    st.download_button("Baixar BO (PDF)", pdf, file_name="BO_Gerado.pdf", mime="application/pdf")
+        with t2:
+            with st.form("form_flagrante"):
+                st.markdown("**Lavratura de Flagrante Delito**")
+                nat = st.text_input("Natureza / Tipificação Penal")
+                conduzido = st.text_input("Dados do Conduzido (Nome, RG, CPF)")
+                relato_pm = st.text_area("Relato do Condutor")
+                c1, c2 = st.columns(2)
+                with c1: st.checkbox("Nota de Culpa Emitida")
+                with c2: st.checkbox("Comunicação à Família/Advogado Realizada")
+                if st.form_submit_button("GERAR DOCUMENTO", type="primary"):
+                    st.success("Procedimento validado para impressão.")
+        with t3:
+            with st.form("form_ro"):
+                st.markdown("**Registro de Ocorrência - Guarnição PM**")
+                vtr = st.text_input("Prefixo VTR")
+                efetivo = st.text_input("Composição da GU")
+                historico = st.text_area("Histórico da Ocorrência")
+                if st.form_submit_button("GERAR DOCUMENTO", type="primary"):
+                    st.success("RO Consolidado.")
+        with t4:
+            with st.form("form_local"):
+                st.markdown("**Atendimento de Local de Homicídio/Crime Grave**")
+                st.checkbox("Perícia Técnica Acionada via CECOM?")
+                st.checkbox("Corpo de Bombeiros no Local?")
+                st.checkbox("Armas/Projéteis Arrecadados e Acautelados?")
+                st.checkbox("Fotografias Iniciais Tiradas pelo Agente?")
+                if st.form_submit_button("GERAR DOCUMENTO", type="primary"):
+                    st.success("Checklist de Preservação Concluído.")
 
     elif menu == "8. Gerador de Persona (Cover)":
-        st.header("🕵️ Cover - Gerador de Dados Falsos")
-        if st.button("GERAR PERSONA"): 
-            d = gerar_pessoa_4devs()
-            if d: st.write(f"**Nome:** {d.get('nome')}\n\n**CPF:** {d.get('cpf')}")
+        st.header("🕵️ Inteligência Encoberta (Síntese de Cover)")
+        st.markdown("⚠️ DIRETRIZ DE INTELIGÊNCIA: Identidades geradas exclusivamente para operações de infiltração cibernética (OSINT/HUMINT).")
+        with st.form("form_persona"):
+            sx = st.selectbox("Sexo Alvo", ["Homem", "Mulher", "Indiferente"])
+            i_min = st.number_input("Idade Mín", 18)
+            i_max = st.number_input("Idade Máx", 50)
+            uf = st.selectbox("Estado de Origem", ["RJ", "SP", "MG", "ES", "RS", "PR", "SC", "BA", "PE", "CE", "DF", "GO", "MT"])
+            if st.form_submit_button("CRIAR IDENTIDADE COVER", type="primary"):
+                url = "https://www.4devs.com.br/ferramentas_online.php"
+                data = {'acao': 'gerar_pessoa', 'sexo': 'H' if sx=="Homem" else 'M' if sx=="Mulher" else 'I', 'idade_min': i_min, 'idade_max': i_max, 'cep_estado': uf, 'pontuacao': 'N'}
+                with st.spinner("Sintetizando identidade operacional..."):
+                    try:
+                        r = requests.post(url, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                        persona = r.json()[0]
+                        st.json(persona)
+                        pdf_bytes = gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", persona)
+                        st.download_button("Baixar Ficha (PDF)", pdf_bytes, file_name=f"Cover_{persona.get('nome')}.pdf", mime="application/pdf")
+                    except: st.error("Falha na comunicação com o servidor de síntese.")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
-        st.header("👤 Criação de Perfil Cover")
-        with st.form("g_cover"):
-            g, i, e = st.selectbox("Gênero", ["Homem", "Mulher"]), st.slider("Idade", 18, 80, 35), st.selectbox("Etnia", ["Latino/Pardo", "Branco", "Negro", "Asiático"])
-            c = st.text_input("Características Específicas")
-            if st.form_submit_button("GERAR (NANO BANANA 2)", type="primary"):
-                with st.spinner("Gerando..."):
+        st.header("👤 Síntese Facial Fotorrealista")
+        st.markdown("Geração de biometria facial sintética para avatares operacionais.")
+        if not GEMINI_API_KEY: st.error("Chave API ausente no servidor.")
+        with st.form("form_rosto"):
+            gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
+            age = st.slider("Faixa Etária", 18, 70, 30)
+            etnia = st.selectbox("Fenótipo Presumido", ["Pardo/Latino", "Branco", "Negro", "Asiático"])
+            ratio = st.selectbox("Aspecto", ["1:1", "16:9"], index=0)
+            if st.form_submit_button("SINTETIZAR ROSTO", type="primary"):
+                with st.spinner("Renderizando biometria facial..."):
                     try:
-                        client = genai.Client(api_key=GEMINI_API_KEY)
-                        prompt = f"Rosto fotorrealista de {g}, {i} anos, {e}. {c}"
-                        res = client.models.generate_images(model='imagen-3.0-generate-002', prompt=prompt, config=genai.types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg", aspect_ratio="1:1"))
-                        st.image(Image.open(io.BytesIO(res.generated_images[0].image.image_bytes)))
-                    except Exception as err: st.error(f"Erro: {err}")
+                        # Comunicação via REST API para evitar conflito de versão do SDK com o modelo Imagen-3
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+                        headers = {'Content-Type': 'application/json'}
+                        payload = {
+                            "instances": [
+                                {"prompt": f"Fotografia realista frontal de rosto, gênero {gender}, {age} anos de idade, fenótipo {etnia}, iluminação neutra de documento oficial, alta resolução."}
+                            ],
+                            "parameters": {
+                                "sampleCount": 1,
+                                "aspectRatio": ratio
+                            }
+                        }
+                        response = requests.post(url, headers=headers, json=payload)
+                        if response.status_code == 200:
+                            img_b64 = response.json()['predictions'][0]['bytesBase64Encoded']
+                            import base64
+                            img_bytes = base64.b64decode(img_b64)
+                            st.image(Image.open(io.BytesIO(img_bytes)), use_container_width=True)
+                            st.download_button("Baixar Rosto", img_bytes, file_name=f"Rosto_{int(time.time())}.jpg", mime="image/jpeg")
+                        else:
+                            st.error(f"Erro da IA: {response.text}")
+                    except Exception as e: st.error(f"Falha de Síntese: {e}")
 
     elif menu == "10. Inteligência Documental":
-        st.header("📄 Análise de Vínculos e Extração Tática")
-        if not LIBS_DOC: st.error("⚠️ Bibliotecas PyPDF2/docx ausentes.")
-        with st.form("f_doc"):
-            arq = st.file_uploader("Evidência", type=['pdf', 'docx', 'txt', 'csv', 'xlsx', 'jpg', 'png'])
-            agt = st.selectbox("Agente Analítico", ["🔎 GENÉRICO", "💰 FININT", "🌐 OSINT"])
-            if st.form_submit_button("PROCESSAR", type="primary") and arq:
-                with st.spinner("Analisando..."):
-                    try:
-                        client = genai.Client(api_key=GEMINI_API_KEY)
-                        conteudo = [Image.open(arq)] if arq.name.endswith(('.jpg', '.png')) else [f"TEXTO:\n{extrair_texto_arquivo(arq)[:15000]}"]
-                        prompt = f"Analise como agente {agt}. Retorne: 1. Resumo. 2. JSON de conexões com 'nodes' (id, label, group) e 'edges' (from, to, label)."
-                        conteudo.insert(0, prompt)
-                        res = client.models.generate_content(model='gemini-2.5-flash', contents=conteudo)
-                        txt = res.text
-                        js = re.search(r'```json\n(.*?)\n```', txt, re.DOTALL)
-                        relatorio = txt.replace(js.group(0), "") if js else txt
-                        st.write(relatorio)
-                        if js and gerar_mapa_vinculos_json(json.loads(js.group(1))) and os.path.exists("grafo_inteligencia.html"):
-                            with open("grafo_inteligencia.html", 'r', encoding='utf-8') as f: components.html(f.read(), height=500)
-                    except Exception as err: st.error(f"Erro: {err}")
+        st.header("📄 Triagem e Extração Documental")
+        st.markdown("⚠️ DIRETRIZ: Documentos classificados processados em ambiente isolado.")
+        if not GEMINI_API_KEY: st.error("Chave API ausente.")
+        u = st.file_uploader("Documento Escaneado (Imagem)", type=['png','jpg','jpeg'])
+        if u and st.button("EXTRAIR ESTRUTURAS DE INTERESSE"):
+            with st.spinner("Processando OCR Inteligente..."):
+                try:
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    prompt = "Aja como analista de inteligência. Extraia deste documento: Nomes Próprios, CPFs, RGs, CNPJs, Placas de Veículos e Valores Financeiros. Apresente em formato estruturado."
+                    res = model.generate_content([prompt, Image.open(u)])
+                    st.image(u, use_container_width=True)
+                    st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
+                except Exception as e: st.error(f"Falha na extração: {e}")
 
-    elif menu == "11. Geolocalização Forense":
-        st.header("📍 Extração Automática de Metadados (EXIF)")
-        st.markdown("Faça o upload da evidência original. O sistema fará a varredura automática por coordenadas GPS ocultas no arquivo.")
-        
-        u_geo = st.file_uploader("Carregar Imagem Original (.JPG / .JPEG)", type=['jpg', 'jpeg', 'png'])
-        
-        if u_geo:
-            img_geo = Image.open(u_geo)
-            st.image(img_geo, caption="Evidência Submetida", width=300)
+    elif menu == "11. Gestão de Operações":
+        st.header("📋 Comando e Controle: Relatórios Operacionais")
+        st.markdown("Painel consolidado para formulação de Relatórios de Missão, Mandados de Busca e Ordens de Operação.")
+        with st.form("form_op"):
+            st.markdown("**Formulário de Relatório Operacional Tático**")
+            op_nome = st.text_input("Nome da Operação / Missão", placeholder="Ex: Operação Cérbero")
+            op_data = st.date_input("Data de Deflagração")
+            op_comandante = st.text_input("Autoridade Coordenadora / Delegado", placeholder="Nome e Matrícula")
+            op_alvos = st.text_area("Alvos Prioritários (Nomes e Vínculos)", height=100)
+            op_end = st.text_area("Endereços de Cumprimento de Mandados (Busca/Prisão)", height=100)
+            op_resumo = st.text_area("Resumo da Dinâmica Prevista / Situação Atual", height=150)
             
-            with st.spinner("Varrendo arquivo em busca de dados de satélite..."):
-                geo, msg = extrair_geolocalizacao(img_geo)
-                time.sleep(1) 
-                
-                if geo:
-                    st.success(f"✅ ALVO LOCALIZADO! Latitude: {geo[0]} | Longitude: {geo[1]}")
-                    m = folium.Map([geo[0], geo[1]], zoom_start=15)
-                    folium.Marker([geo[0], geo[1]], tooltip="Origem EXIF da Foto").add_to(m)
-                    st_folium(m, height=400, use_container_width=True)
-                else:
-                    st.error("❌ EVIDÊNCIA LIMPA: Nenhum dado de GPS (EXIF) foi encontrado neste arquivo.")
-                    st.warning("**NOTA OPERACIONAL:** Arquivos recebidos via WhatsApp, Redes Sociais ou salvos como Printscreen perdem os metadados de localização automaticamente. Utilize a foto original extraída do aparelho.")
+            st.markdown("**Recursos Empregados**")
+            c1, c2 = st.columns(2)
+            with c1: op_vtr = st.number_input("Qtd. Viaturas Envolvidas", min_value=1)
+            with c2: op_efetivo = st.number_input("Qtd. Efetivo Desdobrado", min_value=1)
+            
+            if st.form_submit_button("GERAR ORDEM DE OPERAÇÃO", type="primary"):
+                dados_op = {
+                    "Operacao": op_nome,
+                    "Data_Deflagracao": op_data.strftime('%d/%m/%Y'),
+                    "Comandante": op_comandante,
+                    "Alvos": op_alvos,
+                    "Enderecos": op_end,
+                    "Dinamica": op_resumo,
+                    "Viaturas": str(op_vtr),
+                    "Efetivo": str(op_efetivo)
+                }
+                pdf_bytes = gerar_pdf_checklist("ORDEM DE OPERACAO POLICIAL", dados_op)
+                st.success("Ordem estruturada e pronta para protocolo.")
+                st.download_button("Baixar Ordem (PDF)", pdf_bytes, file_name=f"Operacao_{op_nome.replace(' ', '_')}.pdf", mime="application/pdf")

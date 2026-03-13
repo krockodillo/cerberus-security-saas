@@ -30,7 +30,7 @@ st.set_page_config(page_title="🐺 CERBERUS BETA v0.3.2", layout="wide", page_i
 
 # Puxa a chave do cofre secreto do Streamlit (st.secrets) ou do ambiente (Github)
 try:
-    GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    GEMINI_API_KEY = "AIzaSyBAD0Tkd-Yr1ePl-LsMwTT8n_41pc3MPGg"
 except:
     GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 

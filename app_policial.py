@@ -27,7 +27,7 @@ import base64
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.2", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.3", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
 try:
@@ -85,7 +85,7 @@ MODULOS_SILVER = [
     "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
-DB_PATH = "/tmp/cerberus_users.db"
+DB_PATH = "cerberus_users.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -243,7 +243,7 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.2</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.3</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -338,6 +338,8 @@ else:
 
     elif menu == "2. Transcrição de Áudio":
         st.header("🎙️ Decodificação de Áudio (Whisper)")
+        if not STATUS_AUDIO:
+            st.error("🛑 Módulo Whisper offline. Falta dependência de sistema (ffmpeg) instalada no servidor de hospedagem.")
         t1, t2 = st.tabs(["📁 Arquivo Físico", "🎤 Captura de Microfone"])
         audio_up = None
         with t1: audio_up = st.file_uploader("Submeter Áudio", type=['mp3','wav', 'm4a', 'ogg'])
@@ -620,9 +622,16 @@ else:
                             # Botão para o policial baixar a foto com qualidade máxima
                             st.download_button("BAIXAR FOTOGRAFIA", img_bytes, file_name=f"Avatar_{int(time.time())}.jpg", mime="image/jpeg", type="secondary")
 
+                        elif response.status_code == 403:
+                            st.error("Erro 403 (Permissão Negada): A sua Chave API pode estar bloqueada, vazada ou sem permissões para o modelo Imagen.")
+                        elif response.status_code == 429:
+                            st.error("Erro 429 (Limite Excedido): Foram feitas muitas requisições em pouco tempo. Aguarde um momento.")
                         else:
                             st.error(f"Erro na API da Google: Código {response.status_code}")
-                            st.warning("Motivo provável: O sistema de segurança da Google bloqueou a geração. Tente mudar o tipo de roupa ou ambiente.")
+                            try:
+                                st.json(response.json())
+                            except:
+                                st.write(response.text)
 
                     except Exception as e:
                         st.error(f"Falha de comunicação com o servidor de síntese: {e}")

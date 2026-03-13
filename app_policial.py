@@ -27,7 +27,7 @@ import base64
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.5", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.6", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
 try:
@@ -85,10 +85,11 @@ MODULOS_SILVER = [
     "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
 ]
 
-DB_PATH = "cerberus_users.db"
+# CORREÇÃO CRÍTICA: Retornando para o diretório temporário seguro. O Streamlit bloqueia gravações pesadas na raiz.
+DB_PATH = "/tmp/cerberus_users.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, vencimento TEXT)''')
     c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
@@ -98,7 +99,7 @@ def init_db():
     conn.close()
 
 def login_user(username, password):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, password))
     user = c.fetchone()
@@ -110,7 +111,7 @@ def login_user(username, password):
     return None, "❌ Usuário ou senha inválidos."
 
 def get_all_users():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('SELECT username, role, plan, vencimento FROM usuarios')
     users = c.fetchall()
@@ -119,7 +120,7 @@ def get_all_users():
 
 def create_user(username, password, role, plan, vencimento):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         c = conn.cursor()
         c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', (username, password, role, plan, vencimento))
         conn.commit()
@@ -129,7 +130,7 @@ def create_user(username, password, role, plan, vencimento):
         return False, "❌ Erro: Este nome de usuário já existe."
 
 def update_user_db(username, password, role, plan, vencimento):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     if password: 
         c.execute('UPDATE usuarios SET password=?, role=?, plan=?, vencimento=? WHERE username=?', (password, role, plan, vencimento, username))
@@ -140,7 +141,7 @@ def update_user_db(username, password, role, plan, vencimento):
     return True, "✅ Dados do agente atualizados!"
 
 def delete_user_db(username):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('DELETE FROM usuarios WHERE username=?', (username,))
     conn.commit()
@@ -232,7 +233,7 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.5</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.6</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -397,7 +398,6 @@ else:
             ip_in = st.text_input("Endereço IP Alvo")
             if ip_in and st.button("RASTREAR ORIGEM"):
                 try: 
-                    # CORREÇÃO CRÍTICA: Removida a formatação de link que quebrava o requests
                     url_limpa = f"http://ip-api.com/json/{ip_in}"
                     resultado_ip = requests.get(url_limpa).json()
                     st.success(f"📍 {ip_in} | {resultado_ip.get('isp')} | {resultado_ip.get('city')}")
@@ -549,8 +549,6 @@ else:
                 with st.spinner("Acionando rede neural de renderização (Imagen 3)..."):
                     try:
                         prompt = f"Fotografia hiper-realista. Gênero: {gender}, Idade: {age} anos, Fenótipo: {etnia}. Enquadramento: {tipo}. Vestimenta: {roupa}. Ambiente: {local}. Iluminação dramática e realista, alta definição 8k, textura de pele natural, estilo fotográfico profissional, sem distorções."
-                        
-                        # CORREÇÃO CRÍTICA: Removida a formatação de link [https...] que causava o Invalid URL
                         url_limpa = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
                         
                         payload = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}

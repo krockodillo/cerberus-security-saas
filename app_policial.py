@@ -27,7 +27,7 @@ import base64
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.4", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.5", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
 try:
@@ -232,7 +232,7 @@ if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.4</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.4.5</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -396,8 +396,13 @@ else:
         with tab2:
             ip_in = st.text_input("Endereço IP Alvo")
             if ip_in and st.button("RASTREAR ORIGEM"):
-                try: st.success(f"📍 {ip_in} | {requests.get(f'[http://ip-api.com/json/](http://ip-api.com/json/){ip_in}').json().get('isp')} | Cidade")
-                except: st.error("Falha na varredura.")
+                try: 
+                    # CORREÇÃO CRÍTICA: Removida a formatação de link que quebrava o requests
+                    url_limpa = f"http://ip-api.com/json/{ip_in}"
+                    resultado_ip = requests.get(url_limpa).json()
+                    st.success(f"📍 {ip_in} | {resultado_ip.get('isp')} | {resultado_ip.get('city')}")
+                except Exception as e: 
+                    st.error(f"Falha na varredura: {e}")
 
     elif menu == "7. Checklist Tático":
         st.header("📋 Formulários e Procedimentos Operacionais")
@@ -544,9 +549,12 @@ else:
                 with st.spinner("Acionando rede neural de renderização (Imagen 3)..."):
                     try:
                         prompt = f"Fotografia hiper-realista. Gênero: {gender}, Idade: {age} anos, Fenótipo: {etnia}. Enquadramento: {tipo}. Vestimenta: {roupa}. Ambiente: {local}. Iluminação dramática e realista, alta definição 8k, textura de pele natural, estilo fotográfico profissional, sem distorções."
-                        url = f"[https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=](https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=){GEMINI_API_KEY}"
+                        
+                        # CORREÇÃO CRÍTICA: Removida a formatação de link [https...] que causava o Invalid URL
+                        url_limpa = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+                        
                         payload = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": ratio}}
-                        response = requests.post(url, headers={"Content-Type": "application/json"}, json=payload)
+                        response = requests.post(url_limpa, headers={"Content-Type": "application/json"}, json=payload)
 
                         if response.status_code == 200:
                             img_b64 = response.json()["predictions"][0]["bytesBase64Encoded"]

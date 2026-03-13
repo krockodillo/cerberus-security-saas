@@ -26,7 +26,7 @@ import re
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.3.1", layout="wide", page_icon="🛡️")
 
 # Puxa a chave do cofre secreto do Streamlit (st.secrets) ou do ambiente (Github)
 try:
@@ -42,24 +42,60 @@ except ImportError:
     LIBS_DOC = False
 
 # ==============================================================================
-# 🎨 DESIGN E ESTILOS (TÁTICO MILITAR)
+# 🎨 DESIGN E ESTILOS (TÁTICO MILITAR - MELHORADO)
 # ==============================================================================
 st.markdown("""
     <style>
+    /* Ajuste de Contraste Geral */
     .stApp {background-color: #0c1015;}
+    
+    /* Cores de texto padrão para alto contraste */
+    .stMarkdown, .stText, p, span {color: #e2e8f0 !important;}
+    
+    /* Estilização de Cards e Containers com bordas mais visíveis */
     div[data-testid="stForm"] {
-        background-color: #171c24; border-radius: 8px; border: 1px solid #2e3642; padding: 20px !important; margin-bottom: 20px;
+        background-color: #171c24; 
+        border-radius: 8px; 
+        border: 2px solid #3f4a5c; /* Borda com mais contraste */
+        padding: 20px !important;
+        margin-bottom: 20px;
     }
+    
     .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
     .plan-gold { background-color: #eab308; color: black; }
     .plan-silver { background-color: #94a3b8; color: black; }
+    
+    /* Links e Textos em Azul Cerberus para UX */
     .cyber-link { color: #38bdf8 !important; text-decoration: none; font-weight: bold; }
     .cyber-link:hover { text-decoration: underline; color: #7dd3fc !important; }
-    .cyber-box { background-color: #171c24; padding: 20px; border-radius: 8px; border: 1px solid #38bdf8; color: #ffffff; margin-bottom: 15px; }
+    
+    /* Caixa de Notificação Cyber */
+    .cyber-box { 
+        background-color: #171c24; 
+        padding: 20px; 
+        border-radius: 8px; 
+        border: 2px solid #38bdf8; /* Borda cyber */
+        color: #ffffff; 
+        margin-bottom: 15px; 
+    }
+    
+    /* Ocultar MainMenu e Rodapé do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stButton>button {background-color: #2563eb; color: white; border: none; font-weight: 600;}
+    
+    /* Botões Padrão Azul */
+    .stButton>button {
+        background-color: #2563eb; color: white; border: none; font-weight: 600;
+    }
     .stButton>button:hover {background-color: #1d4ed8;}
+    
+    /* Estilo de inputs e selects para alto contraste */
+    .stTextInput>div>div>input, .stSelectbox>div>div>div {
+        color: white !important;
+        background-color: #1a202c !important;
+        border: 1px solid #4a5568 !important;
+    }
+    
     </style>
 """, unsafe_allow_html=True)
 
@@ -163,7 +199,7 @@ if not st.session_state['logged_in']:
     col1, col2, col3 = st.columns([1, 1.2, 1])
     
     with col2:
-        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3</span></h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>BETA v0.3.1</span></h1>", unsafe_allow_html=True)
         with st.form("login_form"):
             user = st.text_input("Credencial Operacional")
             pwd = st.text_input("Chave de Acesso", type="password")
@@ -389,16 +425,36 @@ else:
             i_max = st.number_input("Idade Máx", 50)
             uf = st.selectbox("Estado de Origem", ["RJ", "SP", "MG", "ES", "RS", "PR", "SC", "BA", "PE", "CE", "DF", "GO", "MT"])
             if st.form_submit_button("CRIAR IDENTIDADE COVER", type="primary"):
+                # URL da API do 4devs
                 url = "https://www.4devs.com.br/ferramentas_online.php"
-                data = {'acao': 'gerar_pessoa', 'sexo': 'H' if sx=="Homem" else 'M' if sx=="Mulher" else 'I', 'idade_min': i_min, 'idade_max': i_max, 'cep_estado': uf, 'pontuacao': 'N'}
+                # Form data para a requisição POST
+                post_data = {
+                  'acao': 'gerar_pessoa',
+                  'sexo': 'H' if sx=="Homem" else 'M' if sx=="Mulher" else 'I',
+                  'idade_min': i_min,
+                  'idade_max': i_max,
+                  'cep_estado': uf,
+                  'pontuacao': 'N'
+                }
+                
                 with st.spinner("Sintetizando identidade operacional..."):
+                    # Inicializa json_str para evitar UnboundLocalError
+                    json_str = "{}"
                     try:
-                        r = requests.post(url, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                        r = requests.post(url, data=post_data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                        # API retorna uma lista com uma única pessoa
                         persona = r.json()[0]
+                        
+                        # Interface de exibição da Persona
+                        st.markdown("### 📄 Dados de Cover Gerados")
                         st.json(persona)
+                        
+                        # PDF da Persona
                         pdf_bytes = gerar_pdf_checklist("FICHA DE INTELIGENCIA COVER", persona)
                         st.download_button("Baixar Ficha (PDF)", pdf_bytes, file_name=f"Cover_{persona.get('nome')}.pdf", mime="application/pdf")
-                    except: st.error("Falha na comunicação com o servidor de síntese.")
+                        
+                    except Exception as e:
+                        st.error(f"Falha na comunicação com o servidor de síntese: {e}")
 
     elif menu == "9. Gerador de Rosto (IA Avançada)":
         st.header("👤 Síntese Facial Fotorrealista")
@@ -412,27 +468,23 @@ else:
             if st.form_submit_button("SINTETIZAR ROSTO", type="primary"):
                 with st.spinner("Renderizando biometria facial..."):
                     try:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
-                        headers = {'Content-Type': 'application/json'}
-                        payload = {
-                            "instances": [
-                                {"prompt": f"Fotografia realista frontal de rosto, gênero {gender}, {age} anos de idade, fenótipo {etnia}, iluminação neutra de documento oficial, alta resolução."}
-                            ],
-                            "parameters": {
-                                "sampleCount": 1,
-                                "aspectRatio": ratio
-                            }
-                        }
-                        response = requests.post(url, headers=headers, json=payload)
-                        if response.status_code == 200:
-                            img_b64 = response.json()['predictions'][0]['bytesBase64Encoded']
-                            import base64
-                            img_bytes = base64.b64decode(img_b64)
-                            st.image(Image.open(io.BytesIO(img_bytes)), use_container_width=True)
-                            st.download_button("Baixar Rosto", img_bytes, file_name=f"Rosto_{int(time.time())}.jpg", mime="image/jpeg")
-                        else:
-                            st.error(f"Erro da IA: {response.text}")
-                    except Exception as e: st.error(f"Falha de Síntese: {e}")
+                        genai.configure(api_key=GEMINI_API_KEY)
+                        # prompt técnico para fotorrealismo
+                        prompt = f"Rosto fotorrealista de um {gender}, {age} anos, etnia presumida {etnia}, olhar sério. Alta definição, iluminação de estúdio."
+                        # Modelo estável Imagen 3
+                        model_name = "imagen-3.0-generate-001"
+                        
+                        res = genai.generate_images(
+                            model=model_name,
+                            prompt=prompt,
+                            number_of_images=1,
+                            aspect_ratio=ratio
+                        )
+                        img_bytes = res.generated_images[0].image.image_bytes
+                        st.image(Image.open(io.BytesIO(img_bytes)), use_container_width=True)
+                        st.download_button("Baixar Rosto", img_bytes, file_name=f"Rosto_{int(time.time())}.jpg", mime="image/jpeg")
+                    except Exception as e:
+                        st.error(f"Falha de Síntese Facial: {e}")
 
     elif menu == "10. Inteligência Documental":
         st.header("📄 Triagem e Extração Documental")

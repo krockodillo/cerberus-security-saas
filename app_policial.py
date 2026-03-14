@@ -27,7 +27,7 @@ import base64
 # ==============================================================================
 # ⚙️ CONFIGURAÇÃO INICIAL E SEGURANÇA
 # ==============================================================================
-st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.7", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="🐕‍🦺 CERBERUS BETA v0.4.9", layout="wide", page_icon="🛡️")
 
 # PROTOCOLO DE SEGURANÇA MÁXIMA: Puxar a chave do cofre do Streamlit
 try:
@@ -35,15 +35,8 @@ try:
 except Exception:
     GEMINI_API_KEY = "" 
 
-try:
-    import PyPDF2
-    import docx
-    LIBS_DOC = True
-except ImportError:
-    LIBS_DOC = False
-
 # ==============================================================================
-# 🎨 PAINEL DE CONTROLE DE CORES E UI (CSS)
+# 🎨 UI / UX - ESTÉTICA CYBER-POLICIAL
 # ==============================================================================
 st.markdown("""
     <style>
@@ -62,224 +55,239 @@ st.markdown("""
     }
     .stButton>button:hover, .stFormSubmitButton>button:hover {background-color: #1d4ed8 !important; color: #ffffff !important;}
     .cyber-box { background-color: #171c24; border: 2px solid #38bdf8; color: #ffffff; padding: 20px; border-radius: 8px; margin-bottom: 15px;}
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     .status-badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; color: white; }
     .plan-gold { background-color: #eab308; color: black; }
     .plan-silver { background-color: #94a3b8; color: black; }
-    div.row-widget.stRadio > div {flex-direction: row;}
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# ⚙️ BANCO DE DADOS E GESTÃO DE ACESSO
+# ⚙️ GESTÃO DE BANCO DE DADOS (PERSISTÊNCIA TÁTICA)
 # ==============================================================================
-TODOS_MODULOS = [
-    "1. Detecção de Armas", "2. Transcrição de Áudio", "3. Visão Forense",
-    "4. Mapa de Vínculos", "5. Investigação CPF", "6. Cyber OSINT & Forense",
-    "7. Checklist Tático", "8. Gerador de Persona (Cover)",
-    "9. Gerador de Rosto (IA Avançada)", "10. Inteligência Documental", "11. Gestão de Operações"
-]
+DB_PATH = "/tmp/cerberus_v5_final.db"
 
-MODULOS_SILVER = [
-    "1. Detecção de Armas", "5. Investigação CPF", "6. Cyber OSINT & Forense",
-    "8. Gerador de Persona (Cover)", "10. Inteligência Documental", "11. Gestão de Operações"
-]
-
-DB_PATH = "/tmp/cerberus_users_v2.db"
+def get_db_connection():
+    # check_same_thread=False é vital para o Streamlit não travar com múltiplos usuários
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
+    return conn
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS usuarios (username TEXT PRIMARY KEY, password TEXT, role TEXT, plan TEXT, vencimento TEXT)''')
-    c.execute('SELECT * FROM usuarios WHERE username = "leandro"')
-    if not c.fetchone():
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', ('leandro', '239546Dl', 'admin', 'GOLD', '2099-12-31'))
-        conn.commit()
-    conn.close()
-
-def login_user(username, password):
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, password))
-    user = c.fetchone()
-    conn.close()
-    if user:
-        vencimento = datetime.strptime(user[4], '%Y-%m-%d')
-        if datetime.now() > vencimento: return None, "🚫 Acesso Expirado."
-        return user, "OK"
-    return None, "❌ Credenciais Inválidas."
-
-def get_all_users():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('SELECT username, role, plan, vencimento FROM usuarios')
-    users = c.fetchall()
-    conn.close()
-    return users
-
-def create_user(username, password, role, plan, vencimento):
     try:
-        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        conn = get_db_connection()
         c = conn.cursor()
-        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', (username, password, role, plan, vencimento))
+        c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+            username TEXT PRIMARY KEY, 
+            password TEXT, 
+            role TEXT, 
+            plan TEXT, 
+            vencimento TEXT)''')
+        # Garante que o Comandante Leandro sempre exista
+        c.execute('INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)', 
+                  ('leandro', '239546Dl', 'admin', 'GOLD', '2099-12-31'))
         conn.commit()
         conn.close()
-        return True, "✅ Agente cadastrado!"
-    except:
-        return False, "❌ Erro ao cadastrar."
+    except Exception as e:
+        st.error(f"Erro Crítico de Inicialização: {e}")
 
+def login_user(username, password):
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT username, role, plan, vencimento FROM usuarios WHERE username = ? AND password = ?', (username, password))
+        user = c.fetchone()
+        conn.close()
+        if user:
+            venc = datetime.strptime(user[3], '%Y-%m-%d')
+            if datetime.now() > venc: return None, "🚫 Acesso Expirado."
+            return user, "OK"
+    except: pass
+    return None, "❌ Credenciais Inválidas."
+
+def add_user(u, p, r, pl, v):
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('INSERT INTO usuarios VALUES (?,?,?,?,?)', (u, p, r, pl, v))
+        conn.commit()
+        conn.close()
+        return True
+    except: return False
+
+def delete_user(u):
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('DELETE FROM usuarios WHERE username = ?', (u,))
+        conn.commit()
+        conn.close()
+        return True
+    except: return False
+
+# Inicializa o banco no carregamento
 init_db()
 
 # ==============================================================================
-# 🚪 PROTOCOLO DE ACESSO DIRETO (BYPASS LOGIN)
-# ==============================================================================
-if 'logged_in' not in st.session_state:
-    # Ao iniciar, o sistema assume automaticamente o comando do Comandante Leandro
-    st.session_state['logged_in'] = True
-    st.session_state['username'] = 'leandro'
-    st.session_state['role'] = 'admin'
-    st.session_state['plan'] = 'GOLD'
-
-# ==============================================================================
-# MOTORES DE IA E FUNÇÕES TÁTICAS
+# 🛠️ MOTORES E FUNÇÕES AUXILIARES
 # ==============================================================================
 @st.cache_resource
 def carregar_whisper(): return whisper.load_model("tiny")
 try: whisper_model = carregar_whisper(); STATUS_AUDIO = True
 except: STATUS_AUDIO = False
 
-def gerar_pdf_checklist(titulo, dados):
+def gerar_pdf(titulo, dados):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, f"CERBERUS - {titulo.upper()}", ln=True, align='C')
-    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 10, f"CERBERUS - {titulo}", ln=True, align='C')
     pdf.ln(10)
+    pdf.set_font("Arial", size=10)
     for k, v in dados.items():
-        if v and isinstance(v, str):
-            pdf.set_font("Arial", 'B', 10)
-            pdf.write(7, f"{str(k).upper()}: ")
-            pdf.set_font("Arial", '', 10)
-            pdf.multi_cell(0, 7, txt=str(v).encode('latin-1', 'replace').decode('latin-1'))
+        pdf.cell(0, 10, f"{k.upper()}: {v}", ln=True)
     return pdf.output(dest='S').encode('latin-1')
 
-def gerar_persona_offline(sexo, idade, uf, pontuacao_str):
-    pontuacao = pontuacao_str == "Sim"
-    if sexo == "Aleatório": sexo = random.choice(["Masculino", "Feminino"])
-    n_h = ["Miguel", "Arthur", "Gael", "Théo", "Heitor", "Noah", "Gabriel"]
-    n_m = ["Helena", "Alice", "Laura", "Maria", "Sophia", "Beatriz"]
-    sobrenomes = ["Silva", "Santos", "Oliveira", "Souza", "Pereira", "Lima"]
-    primeiro = random.choice(n_h) if sexo == "Masculino" else random.choice(n_m)
-    nome = f"{primeiro} {random.choice(sobrenomes)} {random.choice(sobrenomes)}"
-    nasc = datetime.now() - timedelta(days=(idade * 365) + random.randint(1, 360))
-    c_str = ''.join([str(random.randint(0,9)) for _ in range(11)])
-    cpf_f = f"{c_str[:3]}.{c_str[3:6]}.{c_str[6:9]}-{c_str[9:]}" if pontuacao else c_str
-    return {
-        "nome": nome, "cpf": cpf_f, "data_nasc": nasc.strftime("%d/%m/%Y"), "idade": str(idade),
-        "sexo": sexo, "cidade": "Capital", "estado": uf, "celular": "(11) 9" + str(random.randint(10000000, 99999999))
-    }
+# ==============================================================================
+# 🚪 CONTROLE DE SESSÃO E TELA DE LOGIN
+# ==============================================================================
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
 
-# ==============================================================================
-# INTERFACE PRINCIPAL
-# ==============================================================================
 if not st.session_state['logged_in']:
-    # Esta tela só aparecerá se você clicar em "Encerrar Sessão" propositalmente
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center;'>🐕‍🦺 LOGIN CERBERUS</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white;'>🐕‍🦺 CERBERUS <span style='font-size: 16px; color: #38bdf8;'>V0.4.9</span></h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #94a3b8;'>SISTEMA DE INTELIGÊNCIA E OPERAÇÕES TÁTICAS</p>", unsafe_allow_html=True)
+        
         with st.form("login_form"):
-            user = st.text_input("Usuário")
-            pwd = st.text_input("Senha", type="password")
-            if st.form_submit_button("ENTRAR", use_container_width=True):
-                u_data, msg = login_user(user, pwd)
-                if u_data:
-                    st.session_state['logged_in'] = True
-                    st.session_state['username'] = u_data[0]
-                    st.session_state['role'] = u_data[2]
-                    st.session_state['plan'] = u_data[3]
-                    st.rerun()
-                else: st.error(msg)
+            user_input = st.text_input("Credencial Operacional")
+            pass_input = st.text_input("Chave de Acesso", type="password")
+            submit = st.form_submit_button("AUTENTICAR CONEXÃO", use_container_width=True)
+            
+            if submit:
+                with st.spinner("Validando credenciais..."):
+                    user_data, msg = login_user(user_input, pass_input)
+                    if user_data:
+                        st.session_state['logged_in'] = True
+                        st.session_state['user'] = user_data[0]
+                        st.session_state['role'] = user_data[1]
+                        st.session_state['plan'] = user_data[2]
+                        st.rerun()
+                    else:
+                        st.error(msg)
 else:
-    user_role = st.session_state['role']
-    user_plan = st.session_state['plan']
-    
-    st.sidebar.title("🐕‍🦺 CERBERUS TÁTICO")
-    st.sidebar.caption(f"Operador: {st.session_state['username'].upper()}")
-    if user_role == 'admin': st.sidebar.markdown("<span class='status-badge plan-gold'>COMANDANTE</span>", unsafe_allow_html=True)
+    # --- ÁREA LOGADA ---
+    u_name = st.session_state['user']
+    u_role = st.session_state['role']
+    u_plan = st.session_state['plan']
+
+    st.sidebar.title("🐕‍🦺 CERBERUS")
+    st.sidebar.markdown(f"**Agente:** `{u_name.upper()}`")
+    if u_plan == "GOLD": st.sidebar.markdown("<span class='status-badge plan-gold'>PLANO GOLD</span>", unsafe_allow_html=True)
+    else: st.sidebar.markdown("<span class='status-badge plan-silver'>PLANO SILVER</span>", unsafe_allow_html=True)
     
     st.sidebar.markdown("---")
-    if st.sidebar.button("ENCERRAR SESSÃO"):
+    if st.sidebar.button("DESCONECTAR"):
         st.session_state['logged_in'] = False
         st.rerun()
 
-    menu_options = TODOS_MODULOS.copy() if user_plan == 'GOLD' else MODULOS_SILVER.copy()
-    if user_role == 'admin': menu_options.append("⚙️ Gestão de Efetivo")
+    # Definição de Menus baseada no Plano
+    MODULOS_BASE = [
+        "1. Detecção de Armas", "5. Investigação CPF", "6. Cyber OSINT", 
+        "7. Checklist Tático", "8. Persona Cover", "10. Inteligência Documental"
+    ]
+    MODULOS_GOLD = MODULOS_BASE + ["2. Transcrição Áudio", "3. Visão Forense", "9. Gerador de Rosto", "11. Gestão de Operações"]
+    
+    opcoes = MODULOS_GOLD if u_plan == "GOLD" else MODULOS_BASE
+    if u_role == "admin": opcoes.append("⚙️ Painel do Comandante")
 
-    menu = st.sidebar.radio("Selecione o Módulo:", menu_options)
+    menu = st.sidebar.radio("Navegação de Inteligência:", opcoes)
 
-    # --- MÓDULO 9: GERADOR DE ROSTO (VERSÃO CORRIGIDA) ---
-    if menu == "9. Gerador de Rosto (IA Avançada)":
-        st.header("👤 Síntese Facial Fotorrealista")
-        with st.form("form_rosto"):
-            c1, c2 = st.columns(2)
-            with c1:
-                gender = st.selectbox("Gênero", ["Masculino", "Feminino"])
-                age = st.slider("Idade", 18, 70, 30)
-            with c2:
-                tipo = st.selectbox("Enquadramento", ["Somente rosto", "Meio corpo"])
-                roupa = st.selectbox("Vestimenta", ["Casual", "Tático militar", "Social"])
-            gerar = st.form_submit_button("SINTETIZAR IMAGEM", type="primary")
-
-        if gerar:
-            if not GEMINI_API_KEY: st.error("Chave API ausente nos Secrets.")
-            else:
-                with st.spinner("Renderizando..."):
-                    try:
-                        prompt = f"Fotografia realista de {gender}, {age} anos, vestindo {roupa}, enquadramento {tipo}, alta definição."
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
-                        res = requests.post(url, json={"instances": [{"prompt": prompt}]}, timeout=30)
-                        if res.status_code == 200:
-                            img_b64 = res.json()["predictions"][0]["bytesBase64Encoded"]
-                            st.session_state['avatar'] = base64.b64decode(img_b64)
-                        else: st.error(f"Erro API: {res.status_code}")
-                    except Exception as e: st.error(f"Erro: {e}")
-
-        if 'avatar' in st.session_state:
-            st.image(st.session_state['avatar'], use_container_width=True)
-            st.download_button("BAIXAR IMAGEM", st.session_state['avatar'], file_name="avatar.jpg", mime="image/jpeg")
-
-    # --- MÓDULO 8: PERSONA OFFLINE ---
-    elif menu == "8. Gerador de Persona (Cover)":
-        st.header("🕵️ Gerador de Persona")
-        with st.form("form_p"):
-            sx = st.radio("Sexo", ["Masculino", "Feminino"], horizontal=True)
-            id_ = st.slider("Idade", 18, 80, 35)
-            uf = st.selectbox("Estado", ["SP", "RJ", "MG", "BA"])
-            if st.form_submit_button("GERAR"):
-                st.session_state['p_data'] = gerar_persona_offline(sx, id_, uf, "Sim")
+    # ==============================================================================
+    # ⚙️ MÓDULO: PAINEL DO COMANDANTE (MASTER)
+    # ==============================================================================
+    if menu == "⚙️ Painel do Comandante":
+        st.header("⚙️ Painel de Gestão de Efetivo")
+        tab1, tab2 = st.tabs(["📋 Agentes Ativos", "➕ Novo Recrutamento"])
         
-        if 'p_data' in st.session_state:
-            st.json(st.session_state['p_data'])
-            st.download_button("BAIXAR FICHA (PDF)", gerar_pdf_checklist("PERSONA", st.session_state['p_data']), file_name="persona.pdf")
+        with tab1:
+            conn = get_db_connection()
+            df = pd.read_sql_query("SELECT username, role, plan, vencimento FROM usuarios", conn)
+            conn.close()
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            alvo_del = st.selectbox("Revogar Acesso de Agente:", df['username'].tolist())
+            if st.button("EXCLUIR CREDENCIAL"):
+                if alvo_del == "leandro": st.error("Impossível excluir o Comandante Master.")
+                elif delete_user(alvo_del): st.success("Acesso revogado."); st.rerun()
 
-    # --- MÓDULO 7: CHECKLIST ---
-    elif menu == "7. Checklist Tático":
-        st.header("📋 Relatórios Operacionais")
-        with st.form("f_check"):
-            op = st.text_input("Nome da Operação")
-            rel = st.text_area("Relato dos Fatos")
-            if st.form_submit_button("GERAR RELATÓRIO"):
-                st.session_state['pdf_rel'] = gerar_pdf_checklist("RELATÓRIO", {"Operação": op, "Relato": rel})
-        if 'pdf_rel' in st.session_state:
-            st.download_button("BAIXAR PDF", st.session_state['pdf_rel'], file_name="relatorio.pdf")
+        with tab2:
+            with st.form("add_user"):
+                n_u = st.text_input("Novo Usuário")
+                n_p = st.text_input("Senha Inicial")
+                n_r = st.selectbox("Nível", ["user", "admin"])
+                n_pl = st.selectbox("Plano de Acesso", ["GOLD", "SILVER"])
+                n_v = st.date_input("Validade", value=datetime.now() + timedelta(days=365))
+                if st.form_submit_button("CADASTRAR AGENTE"):
+                    if add_user(n_u, n_p, n_r, n_pl, n_v.strftime('%Y-%m-%d')):
+                        st.success("Agente integrado ao sistema.")
+                    else: st.error("Usuário já existe.")
 
-    # --- MÓDULO 11: GESTÃO ---
-    elif menu == "⚙️ Gestão de Efetivo":
-        st.header("⚙️ Gestão de Agentes")
-        users = get_all_users()
-        st.table(pd.DataFrame(users, columns=["Usuário", "Nível", "Plano", "Vencimento"]))
+    # ==============================================================================
+    # 🔫 MÓDULO: DETECÇÃO DE ARMAS
+    # ==============================================================================
+    elif menu == "1. Detecção de Armas":
+        st.header("🔫 Varredura Tática de Imagens")
+        up = st.file_uploader("Submeter Foto/Frame", type=['jpg','png'])
+        if up and st.button("INICIAR ANÁLISE"):
+            if not GEMINI_API_KEY: st.error("Erro: API Key não configurada.")
+            else:
+                with st.spinner("IA Analisando ameaças..."):
+                    genai.configure(api_key=GEMINI_API_KEY)
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    res = model.generate_content(["Identifique armas, munições e nível de perigo tático.", Image.open(up)])
+                    st.image(up, use_container_width=True)
+                    st.markdown(f"<div class='cyber-box'>{res.text}</div>", unsafe_allow_html=True)
 
-    # --- DEMAIS MÓDULOS (PLACEHOLDERS) ---
+    # ==============================================================================
+    # 🕵️ MÓDULO: PERSONA COVER (OFFLINE)
+    # ==============================================================================
+    elif menu == "8. Persona Cover":
+        st.header("🕵️ Gerador de Identidade Sintética")
+        with st.form("p_cover"):
+            sexo = st.radio("Gênero", ["Masculino", "Feminino"], horizontal=True)
+            estado = st.selectbox("Estado de Origem", ["SP", "RJ", "MG", "BA", "PR", "PE"])
+            if st.form_submit_button("SINTETIZAR"):
+                # Lógica simplificada offline para garantir 0 erros
+                id_falsa = f"{random.randint(100,999)}.{random.randint(100,999)}.{random.randint(100,999)}-{random.randint(10,99)}"
+                nome_falso = f"{random.choice(['Miguel','Arthur','Helena','Alice'])} {random.choice(['Silva','Santos','Oliveira'])}"
+                st.session_state['cover'] = {"Nome": nome_falso, "CPF": id_falsa, "Origem": estado}
+        
+        if 'cover' in st.session_state:
+            st.json(st.session_state['cover'])
+            pdf_bytes = gerar_pdf("FICHA COVER", st.session_state['cover'])
+            st.download_button("BAIXAR DOSSIÊ", pdf_bytes, "cover.pdf", "application/pdf")
+
+    # ==============================================================================
+    # 👤 MÓDULO: GERADOR DE ROSTO (IMAGEN 3)
+    # ==============================================================================
+    elif menu == "9. Gerador de Rosto":
+        st.header("👤 Síntese de Face Neural")
+        with st.form("f_rosto"):
+            prompt_f = st.text_input("Descrição do Alvo", "Homem pardo, 30 anos, barba curta, olhar sério")
+            if st.form_submit_button("GERAR FACE"):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={GEMINI_API_KEY}"
+                payload = {"instances": [{"prompt": prompt_f}]}
+                try:
+                    res = requests.post(url, json=payload, timeout=30)
+                    img_b64 = res.json()["predictions"][0]["bytesBase64Encoded"]
+                    st.session_state['face'] = base64.b64decode(img_b64)
+                except: st.error("Erro na síntese neural.")
+        
+        if 'face' in st.session_state:
+            st.image(st.session_state['face'], use_container_width=True)
+            st.download_button("BAIXAR IMAGEM", st.session_state['face'], "face.jpg", "image/jpeg")
+
+    # Módulos genéricos (Placeholders para manter a estrutura)
     else:
-        st.info(f"Módulo '{menu}' carregado e aguardando entrada de dados.")
+        st.info(f"O Módulo {menu} está pronto para operação. Insira os dados táticos.")
